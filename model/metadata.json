@@ -1,0 +1,510 @@
+{
+  "dataset": {
+    "name": "UCI Phishing Websites",
+    "url": "https://archive.ics.uci.edu/dataset/327/phishing+websites",
+    "rows": 11055,
+    "feature_count": 30,
+    "license": "CC BY 4.0",
+    "doi": "10.24432/C51W2X",
+    "csv_sha256": "81738de9148da342f0d6994ed4c43136cd393fe6190b7bef53266861ed04e9a3",
+    "download_url": "https://archive.ics.uci.edu/static/public/327/phishing+websites.zip",
+    "archive_sha256": "514f582cb44cba17251baf1d59f64cddff16efa2b644d091ce8d2a1e8d492940",
+    "arff_sha256": "3bcf93b1612306537ee2737751f1bac185b2a77886ab376644c3bf0c7f7cb3e6"
+  },
+  "target_column": "is_phishing",
+  "target_labels": {
+    "0": "Legitimate",
+    "1": "Phishing"
+  },
+  "feature_names": [
+    "having_IP_Address",
+    "URL_Length",
+    "Shortining_Service",
+    "having_At_Symbol",
+    "double_slash_redirecting",
+    "Prefix_Suffix",
+    "having_Sub_Domain",
+    "SSLfinal_State",
+    "Domain_registeration_length",
+    "Favicon",
+    "port",
+    "HTTPS_token",
+    "Request_URL",
+    "URL_of_Anchor",
+    "Links_in_tags",
+    "SFH",
+    "Submitting_to_email",
+    "Abnormal_URL",
+    "Redirect",
+    "on_mouseover",
+    "RightClick",
+    "popUpWidnow",
+    "Iframe",
+    "age_of_domain",
+    "DNSRecord",
+    "web_traffic",
+    "Page_Rank",
+    "Google_Index",
+    "Links_pointing_to_page",
+    "Statistical_report"
+  ],
+  "feature_values": {
+    "having_IP_Address": [
+      -1,
+      1
+    ],
+    "URL_Length": [
+      -1,
+      0,
+      1
+    ],
+    "Shortining_Service": [
+      -1,
+      1
+    ],
+    "having_At_Symbol": [
+      -1,
+      1
+    ],
+    "double_slash_redirecting": [
+      -1,
+      1
+    ],
+    "Prefix_Suffix": [
+      -1,
+      1
+    ],
+    "having_Sub_Domain": [
+      -1,
+      0,
+      1
+    ],
+    "SSLfinal_State": [
+      -1,
+      0,
+      1
+    ],
+    "Domain_registeration_length": [
+      -1,
+      1
+    ],
+    "Favicon": [
+      -1,
+      1
+    ],
+    "port": [
+      -1,
+      1
+    ],
+    "HTTPS_token": [
+      -1,
+      1
+    ],
+    "Request_URL": [
+      -1,
+      1
+    ],
+    "URL_of_Anchor": [
+      -1,
+      0,
+      1
+    ],
+    "Links_in_tags": [
+      -1,
+      0,
+      1
+    ],
+    "SFH": [
+      -1,
+      0,
+      1
+    ],
+    "Submitting_to_email": [
+      -1,
+      1
+    ],
+    "Abnormal_URL": [
+      -1,
+      1
+    ],
+    "Redirect": [
+      0,
+      1
+    ],
+    "on_mouseover": [
+      -1,
+      1
+    ],
+    "RightClick": [
+      -1,
+      1
+    ],
+    "popUpWidnow": [
+      -1,
+      1
+    ],
+    "Iframe": [
+      -1,
+      1
+    ],
+    "age_of_domain": [
+      -1,
+      1
+    ],
+    "DNSRecord": [
+      -1,
+      1
+    ],
+    "web_traffic": [
+      -1,
+      0,
+      1
+    ],
+    "Page_Rank": [
+      -1,
+      1
+    ],
+    "Google_Index": [
+      -1,
+      1
+    ],
+    "Links_pointing_to_page": [
+      -1,
+      0,
+      1
+    ],
+    "Statistical_report": [
+      -1,
+      1
+    ]
+  },
+  "split": {
+    "method": "First held-out fold of shuffled StratifiedGroupKFold(n_splits=5); identical feature vectors form a group.",
+    "seed": 2026,
+    "train_rows": 8841,
+    "test_rows": 2214,
+    "train_class_counts": {
+      "0": 4924,
+      "1": 3917
+    },
+    "test_class_counts": {
+      "0": 1233,
+      "1": 981
+    },
+    "duplicate_feature_rows": 5270,
+    "conflicting_feature_groups": 64,
+    "feature_group_overlap": 0
+  },
+  "training": {
+    "python": "3.12.15",
+    "scikit_learn": "1.7.2",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "hyperparameters": {
+      "Logistic Regression": {
+        "C": 1.0,
+        "class_weight": null,
+        "dual": false,
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "l1_ratio": null,
+        "max_iter": 2000,
+        "multi_class": "deprecated",
+        "n_jobs": null,
+        "penalty": "l2",
+        "random_state": 2026,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "Decision Tree": {
+        "ccp_alpha": 0.0,
+        "class_weight": null,
+        "criterion": "gini",
+        "max_depth": 12,
+        "max_features": null,
+        "max_leaf_nodes": null,
+        "min_impurity_decrease": 0.0,
+        "min_samples_leaf": 3,
+        "min_samples_split": 2,
+        "min_weight_fraction_leaf": 0.0,
+        "monotonic_cst": null,
+        "random_state": 2026,
+        "splitter": "best"
+      },
+      "KNN": {
+        "algorithm": "ball_tree",
+        "leaf_size": 30,
+        "metric": "minkowski",
+        "metric_params": null,
+        "n_jobs": 1,
+        "n_neighbors": 15,
+        "p": 2,
+        "weights": "distance"
+      },
+      "Naive Bayes": {
+        "priors": null,
+        "var_smoothing": 1e-08
+      },
+      "Support Vector Machine": {
+        "C": 3.0,
+        "break_ties": false,
+        "cache_size": 200,
+        "class_weight": null,
+        "coef0": 0.0,
+        "decision_function_shape": "ovr",
+        "degree": 3,
+        "gamma": "scale",
+        "kernel": "rbf",
+        "max_iter": -1,
+        "probability": false,
+        "random_state": 2026,
+        "shrinking": true,
+        "tol": 0.001,
+        "verbose": false
+      }
+    },
+    "settings": "Fixed baselines; training-only scaling; no test-set tuning.",
+    "serialization": "Python pickle",
+    "pickle_protocol": 5,
+    "serialization_note": "Existing fitted pipelines converted to standard-library pickle without retraining; identical predictions and scores verified."
+  },
+  "evaluation": {
+    "Logistic Regression": {
+      "metrics": {
+        "Accuracy": 0.9272809394760614,
+        "AUC": 0.975132546774771,
+        "Precision": 0.9475982532751092,
+        "Recall": 0.8848114169215087,
+        "F1": 0.915129151291513,
+        "MCC": 0.8531801258141939
+      },
+      "confusion_matrix": [
+        [
+          1185,
+          48
+        ],
+        [
+          113,
+          868
+        ]
+      ],
+      "classification_report": {
+        "Legitimate": {
+          "precision": 0.9129429892141756,
+          "recall": 0.9610705596107056,
+          "f1-score": 0.9363887791386803,
+          "support": 1233.0
+        },
+        "Phishing": {
+          "precision": 0.9475982532751092,
+          "recall": 0.8848114169215087,
+          "f1-score": 0.915129151291513,
+          "support": 981.0
+        },
+        "accuracy": 0.9272809394760614,
+        "macro avg": {
+          "precision": 0.9302706212446423,
+          "recall": 0.9229409882661072,
+          "f1-score": 0.9257589652150966,
+          "support": 2214.0
+        },
+        "weighted avg": {
+          "precision": 0.9282983704444268,
+          "recall": 0.9272809394760614,
+          "f1-score": 0.9269688627348541,
+          "support": 2214.0
+        }
+      }
+    },
+    "Decision Tree": {
+      "metrics": {
+        "Accuracy": 0.9345076784101174,
+        "AUC": 0.9717594556095415,
+        "Precision": 0.9372384937238494,
+        "Recall": 0.9133537206931702,
+        "F1": 0.9251419721218379,
+        "MCC": 0.8671778497435724
+      },
+      "confusion_matrix": [
+        [
+          1173,
+          60
+        ],
+        [
+          85,
+          896
+        ]
+      ],
+      "classification_report": {
+        "Legitimate": {
+          "precision": 0.9324324324324325,
+          "recall": 0.9513381995133819,
+          "f1-score": 0.941790445604175,
+          "support": 1233.0
+        },
+        "Phishing": {
+          "precision": 0.9372384937238494,
+          "recall": 0.9133537206931702,
+          "f1-score": 0.9251419721218379,
+          "support": 981.0
+        },
+        "accuracy": 0.9345076784101174,
+        "macro avg": {
+          "precision": 0.9348354630781409,
+          "recall": 0.9323459601032761,
+          "f1-score": 0.9334662088630065,
+          "support": 2214.0
+        },
+        "weighted avg": {
+          "precision": 0.9345619473948895,
+          "recall": 0.9345076784101174,
+          "f1-score": 0.9344136829636273,
+          "support": 2214.0
+        }
+      }
+    },
+    "KNN": {
+      "metrics": {
+        "Accuracy": 0.9250225835591689,
+        "AUC": 0.9723009690196458,
+        "Precision": 0.9231568016614745,
+        "Recall": 0.9062181447502549,
+        "F1": 0.9146090534979424,
+        "MCC": 0.847907061406142
+      },
+      "confusion_matrix": [
+        [
+          1159,
+          74
+        ],
+        [
+          92,
+          889
+        ]
+      ],
+      "classification_report": {
+        "Legitimate": {
+          "precision": 0.926458832933653,
+          "recall": 0.9399837793998378,
+          "f1-score": 0.9331723027375202,
+          "support": 1233.0
+        },
+        "Phishing": {
+          "precision": 0.9231568016614745,
+          "recall": 0.9062181447502549,
+          "f1-score": 0.9146090534979424,
+          "support": 981.0
+        },
+        "accuracy": 0.9250225835591689,
+        "macro avg": {
+          "precision": 0.9248078172975638,
+          "recall": 0.9231009620750463,
+          "f1-score": 0.9238906781177313,
+          "support": 2214.0
+        },
+        "weighted avg": {
+          "precision": 0.9249957377764683,
+          "recall": 0.9250225835591689,
+          "f1-score": 0.9249471231964064,
+          "support": 2214.0
+        }
+      }
+    },
+    "Naive Bayes": {
+      "metrics": {
+        "Accuracy": 0.6273712737127372,
+        "AUC": 0.9683528815540692,
+        "Precision": 0.5431893687707641,
+        "Recall": 1.0,
+        "F1": 0.7039827771797632,
+        "MCC": 0.4239593073504924
+      },
+      "confusion_matrix": [
+        [
+          408,
+          825
+        ],
+        [
+          0,
+          981
+        ]
+      ],
+      "classification_report": {
+        "Legitimate": {
+          "precision": 1.0,
+          "recall": 0.3309002433090024,
+          "f1-score": 0.49725776965265084,
+          "support": 1233.0
+        },
+        "Phishing": {
+          "precision": 0.5431893687707641,
+          "recall": 1.0,
+          "f1-score": 0.7039827771797632,
+          "support": 981.0
+        },
+        "accuracy": 0.6273712737127372,
+        "macro avg": {
+          "precision": 0.771594684385382,
+          "recall": 0.6654501216545012,
+          "f1-score": 0.600620273416207,
+          "support": 2214.0
+        },
+        "weighted avg": {
+          "precision": 0.7975920373821678,
+          "recall": 0.6273712737127372,
+          "f1-score": 0.5888554355894607,
+          "support": 2214.0
+        }
+      }
+    },
+    "Support Vector Machine": {
+      "metrics": {
+        "Accuracy": 0.9507678410117435,
+        "AUC": 0.988662528016085,
+        "Precision": 0.957983193277311,
+        "Recall": 0.9296636085626911,
+        "F1": 0.9436109674081739,
+        "MCC": 0.9002600990328966
+      },
+      "confusion_matrix": [
+        [
+          1193,
+          40
+        ],
+        [
+          69,
+          912
+        ]
+      ],
+      "classification_report": {
+        "Legitimate": {
+          "precision": 0.945324881141046,
+          "recall": 0.967558799675588,
+          "f1-score": 0.956312625250501,
+          "support": 1233.0
+        },
+        "Phishing": {
+          "precision": 0.957983193277311,
+          "recall": 0.9296636085626911,
+          "f1-score": 0.9436109674081739,
+          "support": 981.0
+        },
+        "accuracy": 0.9507678410117435,
+        "macro avg": {
+          "precision": 0.9516540372091784,
+          "recall": 0.9486112041191396,
+          "f1-score": 0.9499617963293374,
+          "support": 2214.0
+        },
+        "weighted avg": {
+          "precision": 0.9509336454615862,
+          "recall": 0.9507678410117435,
+          "f1-score": 0.9506846549057301,
+          "support": 2214.0
+        }
+      }
+    }
+  }
+}

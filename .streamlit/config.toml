@@ -1,0 +1,15 @@
+[client]
+toolbarMode = "viewer"
+
+[server]
+headless = true
+maxUploadSize = 5
+enableStaticServing = true
+
+[theme]
+base = "light"
+primaryColor = "#087f75"
+backgroundColor = "#f3f7fa"
+secondaryBackgroundColor = "#edf3f6"
+textColor = "#172b45"
+font = "sans serif"
