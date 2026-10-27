@@ -127,6 +127,7 @@
 .summary-detail { color: var(--muted); font-size: .74rem; margin-top: .13rem; }
 
 .section-eyebrow { color: var(--teal); font-size: .67rem; letter-spacing: .13em; font-weight: 750; margin-bottom: .15rem; text-transform: uppercase; }
+.st-key-upload_prompt,
 .st-key-comparison,
 .st-key-metric_chart_panel,
 .st-key-model_detail,
@@ -267,13 +268,13 @@
   .flow-arrow, .flow-plus { font-size: .9rem; }
   .summary-item:first-child { grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
   .summary-item:nth-child(2) { border-left: none; }
-  .st-key-comparison, .st-key-metric_chart_panel, .st-key-model_detail,
+  .st-key-upload_prompt, .st-key-comparison, .st-key-metric_chart_panel, .st-key-model_detail,
   .st-key-matrix_panel, .st-key-report_panel { padding: 1.1rem; border-radius: 14px; }
   [class*="st-key-metric_"] [data-testid="stMetric"] { min-height: 100px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .st-key-hero, .st-key-hero::before, .dataset-summary,
-  .st-key-comparison, .st-key-metric_chart_panel, .st-key-model_detail, .st-key-matrix_panel,
+  .st-key-upload_prompt, .st-key-comparison, .st-key-metric_chart_panel, .st-key-model_detail, .st-key-matrix_panel,
   .st-key-report_panel, [class*="st-key-metric_"] [data-testid="stMetric"],
   [data-testid="stSidebar"] button {
     animation: none !important;

@@ -295,21 +295,44 @@ class GenericDatasetTests(unittest.TestCase):
 
     def test_local_app_renders_custom_profile_and_download_without_training(self):
         profile = self.profiles["multiclass"]
+        upload_state = {"profile": None, "bytes": None}
+
+        def current_upload(*args, **kwargs):
+            # Streamlit scopes the upload widget to the selected model profile.
+            # A file provided for one dataset must not populate another one.
+            if kwargs["key"] != f"test_upload_{upload_state['profile']}":
+                return None
+            return SimpleNamespace(name="selected_test.csv", getvalue=lambda: upload_state["bytes"])
+
+        def assert_waiting_for_upload(app):
+            self.assertEqual(list(app.exception), [])
+            self.assertEqual(list(app.error), [])
+            self.assertEqual(len(app.dataframe), 0)
+            self.assertEqual(len(app.metric), 0)
+            self.assertNotIn("model_selection", [item.key for item in app.selectbox])
+            self.assertNotIn("comparison_metric", [item.key for item in app.selectbox])
+            self.assertFalse(any('class="metric-comparison-chart"' in item.value for item in app.markdown))
+            self.assertFalse(any(" confusion matrix" in item.value and "<img" in item.value for item in app.markdown))
+
         with TemporaryDirectory(prefix="custom-app-downloads-") as static_root, \
                 patch.dict(os.environ, {"ML_MODEL_DIR": str(profile["path"])}), \
                 patch.object(Pipeline, "fit", side_effect=AssertionError("The app must never train models")), \
+                patch("streamlit.file_uploader", side_effect=current_upload), \
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
-            self.assertEqual(list(app.exception), [])
+            assert_waiting_for_upload(app)
             self.assertEqual(app.title[0].value, profile["metadata"]["dataset"]["name"])
-            pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
-            assert_metric_chart(self, chart_from_app(app), profile["comparison"], "Accuracy")
-            self.assertTrue(any("3 target classes give a 3 × 3 matrix" in item.value for item in app.caption))
-            self.assertEqual(app.selectbox(key="model_selection").options, list(MODEL_FILES))
             downloaded_bytes = assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
             custom_download_href = sample_download_href(app)
             downloaded_frame = pd.read_csv(BytesIO(downloaded_bytes))
             pd.testing.assert_frame_equal(downloaded_frame, profile["test_data"])
+            upload_state.update(profile=profile["path"].resolve(), bytes=downloaded_bytes)
+            app.run()
+            self.assertEqual(list(app.exception), [])
+            pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
+            assert_metric_chart(self, chart_from_app(app), profile["comparison"], "Accuracy")
+            self.assertTrue(any("3 target classes give a 3 × 3 matrix" in item.value for item in app.caption))
+            self.assertEqual(app.selectbox(key="model_selection").options, list(MODEL_FILES))
             for name in MODEL_FILES:
                 app.selectbox(key="model_selection").select(name).run()
                 self.assertEqual(list(app.exception), [])
@@ -317,24 +340,30 @@ class GenericDatasetTests(unittest.TestCase):
                 self.assertEqual([metric.value for metric in app.metric], [f"{profile['details'][name]['metrics'][metric]:.4f}" for metric in METRICS])
                 report = app.dataframe[1].value
                 self.assertTrue(all(str(value) in " ".join(map(str, report.index)) for value in [101, 202, 303]))
-            # Switching datasets in the same session must also switch downloads
-            # and cached results, rather than reusing the previous profile.
+            # Switching datasets must switch downloads and wait for that
+            # dataset's upload, rather than displaying the earlier results.
             default_metadata, default_models = load_artifacts()
             default_frame = pd.read_csv(ROOT / "test_data.csv")
             default_features, default_target = validate_data(default_frame, default_metadata)
             default_comparison, _ = evaluate_models(default_models, default_features, default_target, default_metadata)
             app.selectbox(key="dataset_profile").select((ROOT / "model").resolve()).run()
+            assert_waiting_for_upload(app)
+            assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
+            self.assertNotEqual(sample_download_href(app), custom_download_href)
+            upload_state.update(profile=(ROOT / "model").resolve(), bytes=(ROOT / "test_data.csv").read_bytes())
+            app.run()
             self.assertEqual(list(app.exception), [])
             pd.testing.assert_frame_equal(app.dataframe[0].value, default_comparison)
             assert_metric_chart(self, chart_from_app(app), default_comparison, "Accuracy")
-            assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
-            self.assertNotEqual(sample_download_href(app), custom_download_href)
             app.selectbox(key="dataset_profile").select(profile["path"].resolve()).run()
+            assert_waiting_for_upload(app)
+            assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
+            self.assertEqual(sample_download_href(app), custom_download_href)
+            upload_state.update(profile=profile["path"].resolve(), bytes=downloaded_bytes)
+            app.run()
             self.assertEqual(list(app.exception), [])
             pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
             assert_metric_chart(self, chart_from_app(app), profile["comparison"], "Accuracy")
-            assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
-            self.assertEqual(sample_download_href(app), custom_download_href)
 
     def test_app_evaluates_uploaded_generic_csv_and_handles_invalid_uploads(self):
         profile = self.profiles["binary"]

@@ -160,6 +160,14 @@ def show_confusion_matrix(matrix, labels, model_name):
     plt.close(figure)
 
 
+def show_footer():
+    st.markdown(
+        '<div class="page-footer"><span>Machine Learning · Assignment 2</span>'
+        '<span class="footer-status">Evaluation · Saved models · No retraining</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def main():
     profiles = discover_profiles()
     if not profiles:
@@ -252,27 +260,7 @@ def main():
             st.write("These feature columns and the target are required. Column order can differ.")
             st.code(",".join(metadata["feature_names"] + [metadata["target_column"]]), language=None)
             st.write("Classes: " + ", ".join(map(str, metadata["classes"])))
-            st.caption("For a different dataset, first train its models locally using the instructions in README.md.")
-
-    if uploaded_file is None:
-        csv_bytes = sample_bytes
-        data_name = "bundled test_data.csv"
-    else:
-        csv_bytes = uploaded_file.getvalue()
-        data_name = uploaded_file.name
-
-    try:
-        with st.spinner("Evaluating saved models on the test data..."):
-            frame, comparison, details = evaluate_csv(
-                csv_bytes, version, str(model_dir), st.session_state.get("upload_revision", 0),
-            )
-    except (ValueError, KeyError, UnicodeDecodeError, pd.errors.ParserError) as error:
-        st.error(f"The test CSV could not be evaluated: {error}")
-        st.info("Download the test sample for the selected dataset to check the format. To use unrelated features or a different target, first train a separate dataset profile using train.py.")
-        st.stop()
-
-    if uploaded_file is not None:
-        st.success(f"Results refreshed from {data_name}: {len(frame):,} test rows evaluated with all five saved models.")
+            st.caption("For a different dataset, first train its models locally with train.py.")
 
     split = metadata.get("split", {})
     if "train_rows" in split and "test_rows" in split:
@@ -286,13 +274,43 @@ def main():
             '</div>',
             unsafe_allow_html=True,
         )
-        st.caption("The models learned from the training rows. On startup, this app evaluates the reserved test rows. Uploading a CSV replaces the evaluation data below.")
+        st.caption("The models learned from the training rows. The downloadable sample contains the reserved test rows. Upload a labeled test CSV to evaluate the saved models.")
+
+    dataset_text = f"[{dataset['name']}]({dataset['url']})" if dataset.get("url") else dataset["name"]
+    st.caption(f"Training dataset: {dataset_text} · {dataset['feature_count']} input features · Target: {metadata['target_column']} · {len(metadata['classes'])} classes")
+    with st.expander("How the dataset is used"):
+        st.write("The training command loads the full source dataset, creates a separate training and test partition, and fits all five classifiers using only the training rows. The fitted preprocessing and classifiers are saved in .pkl files.")
+        st.write("The app loads those saved models and waits for a labeled test CSV. Uploading a valid file displays the comparison table, chart, metrics, confusion matrix, report and predictions using only that file. The models are not retrained.")
+        st.write("Removing the uploaded file hides the results until another valid test CSV is uploaded. Evaluating the entire original dataset would include training rows and would not provide an independent test of performance.")
+
+    if uploaded_file is None:
+        with st.container(key="upload_prompt"):
+            st.markdown('<div class="section-eyebrow">READY TO EVALUATE</div>', unsafe_allow_html=True)
+            st.subheader("Upload your test data to begin")
+            st.write("Download test_data.csv from the Test data panel, then upload it using Upload test CSV. You can also upload your own labeled test CSV with the required columns.")
+            st.info("Your results will appear here after a valid upload: all five models, six evaluation metrics, an animated comparison chart, and the selected model's confusion matrix and classification report.")
+        show_footer()
+        return
+
+    csv_bytes = uploaded_file.getvalue()
+    data_name = uploaded_file.name
+    try:
+        with st.spinner("Evaluating saved models on your uploaded test data..."):
+            frame, comparison, details = evaluate_csv(
+                csv_bytes, version, str(model_dir), st.session_state.get("upload_revision", 0),
+            )
+    except (ValueError, KeyError, UnicodeDecodeError, pd.errors.ParserError) as error:
+        st.error(f"The test CSV could not be evaluated: {error}")
+        st.info("Upload a valid labeled test CSV to display results. Download the test sample for the selected dataset to check the required format.")
+        show_footer()
+        return
+
+    st.success(f"Results refreshed from {data_name}: {len(frame):,} test rows evaluated with all five saved models.")
 
     # Uploaded filenames are escaped before entering the static HTML summary.
-    source_label = "Bundled held-out test set" if uploaded_file is None else "Uploaded test set"
     st.markdown(
         '<div class="dataset-summary">'
-        f'<div class="summary-item"><div class="summary-label">{source_label}</div>'
+        '<div class="summary-item"><div class="summary-label">Uploaded test set</div>'
         f'<div class="summary-value summary-file" title="{escape(data_name)}">{escape(data_name)}</div>'
         '<div class="summary-detail">Current evaluation source</div></div>'
         f'<div class="summary-item"><div class="summary-label">Rows being evaluated now</div><div class="summary-value">{len(frame):,}</div>'
@@ -301,12 +319,6 @@ def main():
         f'<div class="summary-detail">{len(metadata["classes"])} target classes</div></div></div>',
         unsafe_allow_html=True,
     )
-    dataset_text = f"[{dataset['name']}]({dataset['url']})" if dataset.get("url") else dataset["name"]
-    st.caption(f"Training dataset: {dataset_text} · Target: {metadata['target_column']} · {len(metadata['classes'])} classes")
-    with st.expander("How the dataset is used"):
-        st.write("The training command loads the full source dataset, creates a separate training and test partition, and fits all five classifiers using only the training rows. The fitted preprocessing and classifiers are saved in .pkl files.")
-        st.write("Starting the app loads those saved models and evaluates the default held-out test CSV. Uploading a labeled test CSV updates the comparison table, chart, metrics, confusion matrix, report and predictions using that file. The models are not retrained.")
-        st.write("Removing the upload restores the default held-out test results. Evaluating the entire original dataset would include training rows and would not provide an independent test of performance.")
     auc_reasons = {result["auc_reason"] for result in details.values() if result.get("auc_reason")}
     if auc_reasons:
         st.warning("AUC is unavailable: " + " ".join(sorted(auc_reasons)))
@@ -410,11 +422,7 @@ def main():
         st.dataframe(preview, hide_index=True, width="stretch")
         st.caption("Showing the first 20 rows. The target column contains the actual label.")
 
-    st.markdown(
-        '<div class="page-footer"><span>Machine Learning · Assignment 2</span>'
-        '<span class="footer-status">Evaluation · Saved models · No retraining</span></div>',
-        unsafe_allow_html=True,
-    )
+    show_footer()
 
 
 if __name__ == "__main__":

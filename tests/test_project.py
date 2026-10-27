@@ -5,6 +5,7 @@ Run from the project folder: python -m unittest discover -s tests -v
 
 import pickle
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -200,9 +201,46 @@ class AssignmentTests(unittest.TestCase):
                         if metric != "AUC"
                     ))
 
-    def test_local_app_shows_all_models_and_selected_metrics_without_training(self):
+    def assert_no_evaluation_results(self, app):
+        """No old scores, model controls or prediction outputs may remain."""
+        self.assertEqual(len(app.metric), 0)
+        self.assertEqual(len(app.dataframe), 0)
+        result_labels = {"Choose a metric to compare", "Select a model to inspect"}
+        self.assertFalse(result_labels & {item.label for item in app.selectbox})
+        result_titles = {
+            "Comparison of all five models", "Animated metric comparison",
+            "Confusion matrix", "Classification report",
+        }
+        self.assertFalse(result_titles & {item.value for item in app.subheader})
+        self.assertFalse(any(
+            'class="metric-comparison-chart"' in item.value
+            or 'class="confusion-figure"' in item.value
+            or 'class="dataset-summary"' in item.value
+            for item in app.markdown
+        ))
+
+    def test_initial_app_waits_for_upload_and_keeps_dataset_details_and_download(self):
+        with TemporaryDirectory(prefix="waiting-app-downloads-") as static_root, \
+                patch.object(Pipeline, "fit", side_effect=AssertionError("The app must never train models")), \
+                patch("utils.evaluate_models", side_effect=AssertionError("No upload means no evaluation")) as evaluate, \
+                patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
+            app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+            self.assertEqual(list(app.exception), [])
+            self.assertEqual(app.title[0].value, self.metadata["dataset"]["name"])
+            self.assert_no_evaluation_results(app)
+            evaluate.assert_not_called()
+            flow = next(item.value for item in app.markdown if 'class="dataset-flow"' in item.value)
+            for count in ("11,055 rows", "8,841 rows", "2,214 rows"):
+                self.assertIn(count, flow)
+            self.assertTrue(any("Upload test CSV" == item.label for item in app.get("file_uploader")))
+            self.assertTrue(any("upload" in item.value.lower() for item in app.info))
+            assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
+
+    def test_uploaded_sample_shows_all_models_and_selected_metrics_without_training(self):
+        upload = SimpleNamespace(name="uploaded-test.csv", getvalue=lambda: (ROOT / "test_data.csv").read_bytes())
         with TemporaryDirectory(prefix="default-app-downloads-") as static_root, \
                 patch.object(Pipeline, "fit", side_effect=AssertionError("The app must never train models")), \
+                patch("streamlit.file_uploader", return_value=upload), \
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
             self.assertEqual(list(app.exception), [])
@@ -213,7 +251,6 @@ class AssignmentTests(unittest.TestCase):
             self.assertIn("8,841 rows", flow)
             self.assertIn("2,214 rows", flow)
             self.assertTrue(any("2 target classes give a 2 × 2 matrix" in item.value for item in app.caption))
-            self.assertTrue(any("Upload test CSV" == item.label for item in app.get("file_uploader")))
             self.assertFalse(any("deploy" in button.label.lower() for button in app.button))
             assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
             for name in MODEL_FILES:
@@ -226,6 +263,74 @@ class AssignmentTests(unittest.TestCase):
                 )
                 self.assertTrue(any("Confusion matrix" == title.value for title in app.subheader))
                 self.assertGreaterEqual(len(app.dataframe), 2)
+
+    def test_upload_validation_and_removal_hide_previous_results_in_the_same_session(self):
+        first = self.test_data.head(40).copy()
+        second = self.test_data.tail(55).copy()
+        second[TARGET] = 1 - second[TARGET]
+        state = {"upload": None}
+        callbacks = {}
+
+        def current_upload(*args, **kwargs):
+            callbacks["on_change"] = kwargs.get("on_change")
+            return state["upload"]
+
+        def replace_upload(app, frame, filename):
+            if frame is None:
+                state["upload"] = None
+            else:
+                payload = frame.to_csv(index=False).encode()
+                state["upload"] = SimpleNamespace(name=filename, getvalue=lambda: payload)
+            self.assertTrue(callable(callbacks["on_change"]))
+            callback_state = {"upload_revision": app.session_state["upload_revision"] if "upload_revision" in app.session_state else 0}
+            previous_revision = callback_state["upload_revision"]
+            with patch("streamlit.session_state", callback_state):
+                callbacks["on_change"]()
+            self.assertEqual(callback_state["upload_revision"], previous_revision + 1)
+            app.session_state["upload_revision"] = callback_state["upload_revision"]
+            app.run()
+            self.assertEqual(list(app.exception), [])
+
+        with TemporaryDirectory(prefix="upload-cycle-downloads-") as static_root, \
+                patch.object(Pipeline, "fit", side_effect=AssertionError("Upload changes must never train models")) as fit, \
+                patch("streamlit.file_uploader", side_effect=current_upload), \
+                patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
+            app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+            self.assertEqual(list(app.exception), [])
+            self.assert_no_evaluation_results(app)
+
+            replace_upload(app, first, "first.csv")
+            first_features, first_target = validate_data(first, self.metadata)
+            first_scores, _ = evaluate_models(self.models, first_features, first_target, self.metadata)
+            pd.testing.assert_frame_equal(app.dataframe[0].value, first_scores)
+            self.assertTrue(any("first.csv" in item.value for item in app.success))
+            self.assertTrue(any('class="confusion-figure"' in item.value for item in app.markdown))
+
+            replace_upload(app, first.drop(columns=TARGET), "invalid.csv")
+            self.assertTrue(any("Missing columns" in item.value for item in app.error))
+            self.assert_no_evaluation_results(app)
+            self.assertEqual(list(app.success), [])
+            assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
+
+            replace_upload(app, None, "")
+            self.assert_no_evaluation_results(app)
+            self.assertEqual(list(app.error), [])
+            self.assertTrue(any("upload" in item.value.lower() for item in app.info))
+
+            replace_upload(app, second, "second.csv")
+            second_features, second_target = validate_data(second, self.metadata)
+            second_scores, second_details = evaluate_models(self.models, second_features, second_target, self.metadata)
+            self.assertFalse(first_scores.equals(second_scores))
+            pd.testing.assert_frame_equal(app.dataframe[0].value, second_scores)
+            self.assertTrue(any("second.csv" in item.value for item in app.success))
+            self.assertEqual(list(app.error), [])
+            selected = app.selectbox(key="model_selection").value
+            expected = second_details[selected]
+            self.assertEqual([item.value for item in app.metric], [f"{expected['metrics'][metric]:.4f}" for metric in METRICS])
+            preview = second.head(20).copy()
+            preview[f"predicted_{TARGET}"] = expected["predictions"][:len(preview)]
+            pd.testing.assert_frame_equal(app.dataframe[-1].value.reset_index(drop=True), preview.reset_index(drop=True))
+            fit.assert_not_called()
 
 
 if __name__ == "__main__":
