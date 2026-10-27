@@ -80,19 +80,6 @@
   align-items: center;
   gap: .7rem;
 }
-.hero-eyebrow .local-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .3rem .65rem;
-  border-radius: 50px;
-  border: 1px solid #a6e4d12e;
-  background: #b6eed310;
-  color: #d4f9e9;
-  font-size: .65rem;
-  letter-spacing: .06em;
-}
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #8ce1b7; }
 .hero-facts {
   display: flex;
   flex-wrap: wrap;

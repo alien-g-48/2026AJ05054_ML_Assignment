@@ -184,8 +184,7 @@ def main():
     dataset = metadata["dataset"]
     with st.container(key="hero"):
         st.markdown(
-            '<div class="hero-eyebrow">MACHINE LEARNING / CLASSIFICATION '
-            '<span class="local-badge"><span class="status-dot"></span>LOCAL WORKSPACE</span></div>',
+            '<div class="hero-eyebrow">MACHINE LEARNING / CLASSIFICATION</div>',
             unsafe_allow_html=True,
         )
         st.title(dataset["name"])
@@ -211,8 +210,8 @@ def main():
             '<svg viewBox="0 0 24 26" fill="none"><path d="M12 2 21 6v7c0 5-6 9-9 11-3-2-9-6-9-11V6l9-4Z" '
             'stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" '
             'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
-            '<div><div class="brand-name">Model Lab</div>'
-            '<div class="brand-subtitle">Classification workspace</div></div></div>'
+            '<div><div class="brand-name">ML Assignment 2</div>'
+            '<div class="brand-subtitle">Classifier Comparison</div></div></div>'
             '<div class="sidebar-step">01 / EVALUATION DATA</div>',
             unsafe_allow_html=True,
         )
@@ -413,7 +412,7 @@ def main():
 
     st.markdown(
         '<div class="page-footer"><span>Machine Learning · Assignment 2</span>'
-        '<span class="footer-status">Local evaluation · Saved models · No retraining</span></div>',
+        '<span class="footer-status">Evaluation · Saved models · No retraining</span></div>',
         unsafe_allow_html=True,
     )
 
