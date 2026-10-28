@@ -154,6 +154,35 @@ class AssignmentTests(unittest.TestCase):
                 })
                 np.testing.assert_array_equal(result["confusion_matrix"], [[1, 1], [1, 1]])
 
+    def test_naive_bayes_recall_matches_manual_phishing_counts_and_report(self):
+        """Perfect phishing recall can coexist with many legitimate false alarms."""
+        result = evaluate_model(
+            self.models["Naive Bayes"], self.test_features,
+            self.test_target, self.metadata,
+        )
+        predictions = result["predictions"]
+        actual_phishing = self.test_target == 1
+        predicted_phishing = predictions == 1
+        true_positive = int(np.count_nonzero(actual_phishing & predicted_phishing))
+        false_negative = int(np.count_nonzero(actual_phishing & ~predicted_phishing))
+        false_positive = int(np.count_nonzero(~actual_phishing & predicted_phishing))
+        true_negative = int(np.count_nonzero(~actual_phishing & ~predicted_phishing))
+        self.assertEqual(self.metadata.get("positive_class", result["classes"][-1]), 1)
+        np.testing.assert_array_equal(
+            result["confusion_matrix"],
+            [[true_negative, false_positive], [false_negative, true_positive]],
+        )
+        self.assertEqual((true_negative, false_positive, false_negative, true_positive), (408, 825, 0, 981))
+        manual_recall = true_positive / (true_positive + false_negative)
+        manual_precision = true_positive / (true_positive + false_positive)
+        self.assertEqual(result["metrics"]["Recall"], manual_recall)
+        self.assertEqual(result["metrics"]["Recall"], 1.0)
+        self.assertAlmostEqual(result["metrics"]["Precision"], manual_precision)
+        self.assertLess(manual_precision, .55)
+        self.assertEqual(result["classification_report"]["Phishing"]["recall"], manual_recall)
+        self.assertEqual(result["classification_report"]["Phishing"]["support"], int(actual_phishing.sum()))
+        self.assertAlmostEqual(result["classification_report"]["Legitimate"]["recall"], true_negative / (true_negative + false_positive))
+
     def test_reordered_numeric_csv_columns_are_supported(self):
         reordered = self.test_data.iloc[:10, ::-1].astype(str)
         features, target = validate_data(reordered, self.metadata)
@@ -219,6 +248,16 @@ class AssignmentTests(unittest.TestCase):
             for item in app.markdown
         ))
 
+    def assert_assignment_identity_and_no_chart(self, app):
+        self.assertEqual(app.title[0].value, "ML Assignment 2 · 2026AJ05054")
+        rendered_text = " ".join(item.value for item in app.markdown) + " ".join(item.value for item in app.caption)
+        self.assertIn(self.metadata["dataset"]["name"], rendered_text)
+        self.assertNotIn("Animated metric comparison", rendered_text)
+        self.assertNotIn('class="metric-comparison-chart"', rendered_text)
+        self.assertNotIn("comparison_metric", [item.key for item in app.selectbox])
+        self.assertNotIn("replay_comparison", [item.key for item in app.button])
+        self.assertFalse(any(item.value == "Animated metric comparison" for item in app.subheader))
+
     def test_initial_app_waits_for_upload_and_keeps_dataset_details_and_download(self):
         with TemporaryDirectory(prefix="waiting-app-downloads-") as static_root, \
                 patch.object(Pipeline, "fit", side_effect=AssertionError("The app must never train models")), \
@@ -226,7 +265,7 @@ class AssignmentTests(unittest.TestCase):
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
             self.assertEqual(list(app.exception), [])
-            self.assertEqual(app.title[0].value, self.metadata["dataset"]["name"])
+            self.assert_assignment_identity_and_no_chart(app)
             self.assert_no_evaluation_results(app)
             evaluate.assert_not_called()
             flow = next(item.value for item in app.markdown if 'class="dataset-flow"' in item.value)
@@ -244,6 +283,7 @@ class AssignmentTests(unittest.TestCase):
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
             self.assertEqual(list(app.exception), [])
+            self.assert_assignment_identity_and_no_chart(app)
             self.assertEqual(app.selectbox(key="model_selection").options, list(MODEL_FILES))
             pd.testing.assert_frame_equal(app.dataframe[0].value, self.table)
             flow = next(item.value for item in app.markdown if 'class="dataset-flow"' in item.value)
@@ -256,6 +296,7 @@ class AssignmentTests(unittest.TestCase):
             for name in MODEL_FILES:
                 app.selectbox(key="model_selection").select(name).run()
                 self.assertEqual(list(app.exception), [])
+                self.assert_assignment_identity_and_no_chart(app)
                 self.assertEqual([metric.label for metric in app.metric], METRICS)
                 self.assertEqual(
                     [metric.value for metric in app.metric],

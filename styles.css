@@ -69,6 +69,12 @@
   font-size: .95rem;
   margin-bottom: 0;
 }
+.st-key-hero [data-testid="stMarkdownContainer"] p.hero-dataset {
+  color: #a3e5d1;
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin-bottom: .35rem;
+}
 .hero-eyebrow {
   color: #a3e5d1;
   font-size: .7rem;
@@ -129,7 +135,6 @@
 .section-eyebrow { color: var(--teal); font-size: .67rem; letter-spacing: .13em; font-weight: 750; margin-bottom: .15rem; text-transform: uppercase; }
 .st-key-upload_prompt,
 .st-key-comparison,
-.st-key-metric_chart_panel,
 .st-key-model_detail,
 .st-key-matrix_panel,
 .st-key-report_panel {
@@ -145,16 +150,14 @@
 .confusion-figure img { display: block; width: 100%; height: auto; border-radius: 12px; }
 .st-key-comparison [data-testid="stDataFrame"],
 .st-key-report_panel [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
-.st-key-model_detail [data-baseweb="select"] > div,
-.st-key-metric_chart_panel [data-baseweb="select"] > div {
+.st-key-model_detail [data-baseweb="select"] > div {
   background: #f6f9fb;
   border-color: #d6e2e8;
   border-radius: 10px;
   min-height: 48px;
   transition: border-color .18s, box-shadow .18s;
 }
-.st-key-model_detail [data-baseweb="select"] > div:focus-within,
-.st-key-metric_chart_panel [data-baseweb="select"] > div:focus-within {
+.st-key-model_detail [data-baseweb="select"] > div:focus-within {
   border-color: var(--teal);
   box-shadow: 0 0 0 3px #08857520;
 }
@@ -268,13 +271,13 @@
   .flow-arrow, .flow-plus { font-size: .9rem; }
   .summary-item:first-child { grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
   .summary-item:nth-child(2) { border-left: none; }
-  .st-key-upload_prompt, .st-key-comparison, .st-key-metric_chart_panel, .st-key-model_detail,
+  .st-key-upload_prompt, .st-key-comparison, .st-key-model_detail,
   .st-key-matrix_panel, .st-key-report_panel { padding: 1.1rem; border-radius: 14px; }
   [class*="st-key-metric_"] [data-testid="stMetric"] { min-height: 100px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .st-key-hero, .st-key-hero::before, .dataset-summary,
-  .st-key-upload_prompt, .st-key-comparison, .st-key-metric_chart_panel, .st-key-model_detail, .st-key-matrix_panel,
+  .st-key-upload_prompt, .st-key-comparison, .st-key-model_detail, .st-key-matrix_panel,
   .st-key-report_panel, [class*="st-key-metric_"] [data-testid="stMetric"],
   [data-testid="stSidebar"] button {
     animation: none !important;

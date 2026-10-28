@@ -31,7 +31,6 @@ from streamlit.testing.v1 import AppTest
 from matplotlib.figure import Figure
 
 from downloads import sample_download_url
-from test_comparison_chart import assert_metric_chart, chart_from_app
 from test_downloads import assert_sample_download, sample_download_href
 from train import main as train_main, prepare_custom_dataset
 from utils import METRICS, MODEL_FILES, ROOT, evaluate_model, evaluate_models, load_artifacts, validate_data
@@ -46,6 +45,14 @@ class EmbeddedMatrixParser(HTMLParser):
         attributes = dict(attrs)
         if tag == "img" and attributes.get("alt", "").endswith(" confusion matrix"):
             self.images.append(attributes)
+
+
+def assert_no_comparison_chart(test, app):
+    """The removed chart and its metric/replay controls must stay absent."""
+    test.assertNotIn("comparison_metric", [item.key for item in app.selectbox])
+    test.assertNotIn("replay_comparison", [item.key for item in app.button])
+    test.assertFalse(any(item.value == "Animated metric comparison" for item in app.subheader))
+    test.assertFalse(any('class="metric-comparison-chart"' in item.value for item in app.markdown))
 
 
 class MulticlassProbabilityFixture:
@@ -321,7 +328,8 @@ class GenericDatasetTests(unittest.TestCase):
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
             assert_waiting_for_upload(app)
-            self.assertEqual(app.title[0].value, profile["metadata"]["dataset"]["name"])
+            self.assertEqual(app.title[0].value, "ML Assignment 2 · 2026AJ05054")
+            self.assertTrue(any(profile["metadata"]["dataset"]["name"] in item.value for item in app.markdown))
             downloaded_bytes = assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
             custom_download_href = sample_download_href(app)
             downloaded_frame = pd.read_csv(BytesIO(downloaded_bytes))
@@ -330,7 +338,7 @@ class GenericDatasetTests(unittest.TestCase):
             app.run()
             self.assertEqual(list(app.exception), [])
             pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
-            assert_metric_chart(self, chart_from_app(app), profile["comparison"], "Accuracy")
+            assert_no_comparison_chart(self, app)
             self.assertTrue(any("3 target classes give a 3 × 3 matrix" in item.value for item in app.caption))
             self.assertEqual(app.selectbox(key="model_selection").options, list(MODEL_FILES))
             for name in MODEL_FILES:
@@ -354,7 +362,7 @@ class GenericDatasetTests(unittest.TestCase):
             app.run()
             self.assertEqual(list(app.exception), [])
             pd.testing.assert_frame_equal(app.dataframe[0].value, default_comparison)
-            assert_metric_chart(self, chart_from_app(app), default_comparison, "Accuracy")
+            assert_no_comparison_chart(self, app)
             app.selectbox(key="dataset_profile").select(profile["path"].resolve()).run()
             assert_waiting_for_upload(app)
             assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
@@ -363,7 +371,7 @@ class GenericDatasetTests(unittest.TestCase):
             app.run()
             self.assertEqual(list(app.exception), [])
             pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
-            assert_metric_chart(self, chart_from_app(app), profile["comparison"], "Accuracy")
+            assert_no_comparison_chart(self, app)
 
     def test_app_evaluates_uploaded_generic_csv_and_handles_invalid_uploads(self):
         profile = self.profiles["binary"]
@@ -395,9 +403,7 @@ class GenericDatasetTests(unittest.TestCase):
                         pd.testing.assert_frame_equal(app.dataframe[0].value, expected)
                         self.assertEqual(next(metric.value for metric in app.metric if metric.label == "AUC"), "N/A")
                         self.assertTrue(any("AUC" in item.value for item in app.warning))
-                        app.selectbox(key="comparison_metric").select("AUC").run()
-                        self.assertEqual(list(app.exception), [])
-                        assert_metric_chart(self, chart_from_app(app), expected, "AUC")
+                        assert_no_comparison_chart(self, app)
             self.assertEqual(len(list(Path(static_root).rglob("test_data.csv"))), 1)
 
     def test_new_csv_refreshes_every_model_matrix_and_preview_in_the_same_session(self):
@@ -460,15 +466,7 @@ class GenericDatasetTests(unittest.TestCase):
                 current_count = re.search(r'Rows being evaluated now</div>\s*<div class="summary-value">([^<]+)', summary)
                 self.assertIsNotNone(current_count)
                 self.assertEqual(int(current_count.group(1).replace(",", "")), len(frame))
-                for metric in METRICS:
-                    app.selectbox(key="comparison_metric").select(metric).run()
-                    self.assertEqual(list(app.exception), [])
-                    assert_metric_chart(self, chart_from_app(app), expected_table, metric)
-                before_replay = assert_metric_chart(self, chart_from_app(app), expected_table, "MCC")
-                app.button(key="replay_comparison").click().run()
-                self.assertEqual(list(app.exception), [])
-                replayed = assert_metric_chart(self, chart_from_app(app), expected_table, "MCC")
-                self.assertNotEqual(before_replay.figure["id"], replayed.figure["id"])
+                assert_no_comparison_chart(self, app)
                 pd.testing.assert_frame_equal(app.dataframe[0].value, expected_table)
                 for name in MODEL_FILES:
                     app.selectbox(key="model_selection").select(name).run()
