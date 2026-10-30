@@ -31,6 +31,8 @@ Dataset attribution: Mohammad, R. & McCluskey, L. (2012). *Phishing Websites* [D
 
 [2026AJ05054_ML_Assignment](https://github.com/alien-g-48/2026AJ05054_ML_Assignment)
 
+Live Streamlit app: [https://2026aj05054mlassignment-phishing.streamlit.app/](https://2026aj05054mlassignment-phishing.streamlit.app/)
+
 ## 4. Models used
 
 ### Comparison of evaluation metrics

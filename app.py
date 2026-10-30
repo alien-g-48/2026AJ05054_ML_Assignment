@@ -140,7 +140,7 @@ def sidebar_model_picker(panel, models, ready=False, invalid=False):
     """Keep the model control beside the upload without bypassing CSV checks."""
     with panel:
         st.markdown('<div class="sidebar-step">02 / CLASSIFIER</div>', unsafe_allow_html=True)
-        st.header("Choose a model")
+        st.header("Choose a model", anchor=False)
         if not ready:
             message = "Fix the uploaded CSV to unlock the models." if invalid else "Upload a valid test CSV to unlock the five models."
             st.markdown(
@@ -317,7 +317,7 @@ def main():
             f'<span class="hero-student">Student ID · {STUDENT_ID}</span></div>',
             unsafe_allow_html=True,
         )
-        st.title(ASSIGNMENT_TITLE)
+        st.title(ASSIGNMENT_TITLE, anchor=False)
         st.markdown(
             f'<p class="hero-dataset">Dataset: {escape(dataset["name"])}</p>',
             unsafe_allow_html=True,
@@ -351,7 +351,7 @@ def main():
         st.caption("Upload your test data, then choose a classifier.")
         with st.container(key="sidebar_upload_panel"):
             st.markdown('<div class="sidebar-step">01 / TEST DATA</div>', unsafe_allow_html=True)
-            st.header("Test data")
+            st.header("Test data", anchor=False)
             st.write("Download the sample or upload your own matching test CSV.")
             # Only the saved sample is made downloadable; uploads stay private.
             st.markdown(
@@ -411,7 +411,7 @@ def main():
         sidebar_model_picker(model_picker_panel, models)
         with st.container(key="upload_prompt"):
             st.markdown('<div class="section-eyebrow">READY TO EVALUATE</div>', unsafe_allow_html=True)
-            st.subheader("Upload your test data to begin")
+            st.subheader("Upload your test data to begin", anchor=False)
             st.write("Download test_data.csv from the Test data panel, then upload it using Upload test CSV. You can also upload your own labeled test CSV with the required columns.")
             st.info("Upload a valid test CSV, then select one of the five models to view its six evaluation metrics, confusion matrix and classification report.")
         return
@@ -457,7 +457,7 @@ def main():
         else:
             result = details[selected_model]
             show_selected_model(selected_model)
-            st.subheader(f"{selected_model}: evaluation metrics")
+            st.subheader(f"{selected_model}: evaluation metrics", anchor=False)
             if result.get("auc_reason"):
                 st.warning("AUC is unavailable: " + result["auc_reason"])
             if len(result["classes"]) == 2:
@@ -490,7 +490,7 @@ def main():
 
     with st.container(key="matrix_panel"):
         st.markdown('<div class="section-eyebrow">02 / UNDERSTAND THE ERRORS</div>', unsafe_allow_html=True)
-        st.subheader("Confusion matrix")
+        st.subheader("Confusion matrix", anchor=False)
         st.caption(f"Selected model: {selected_model} · Evaluation data: {data_name}")
         class_count = len(result["classes"])
         st.caption(f"{class_count} target classes give a {class_count} × {class_count} matrix. Input features do not determine the matrix size.")
@@ -500,7 +500,7 @@ def main():
         st.caption(f"All {len(frame):,} test records are shown: {correct:,} correct predictions and {len(frame) - correct:,} errors. Cell percentages are calculated within each actual class.")
     with st.container(key="report_panel"):
         st.markdown('<div class="section-eyebrow">03 / CLASS BY CLASS</div>', unsafe_allow_html=True)
-        st.subheader("Classification report")
+        st.subheader("Classification report", anchor=False)
         st.caption("A detailed view of performance for every class in this dataset.")
         report = {
             label: values
