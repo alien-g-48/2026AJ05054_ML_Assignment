@@ -86,6 +86,18 @@
   align-items: center;
   gap: .7rem;
 }
+.hero-student {
+  display: inline-flex;
+  align-items: center;
+  color: #e3f8f0;
+  background: #b5efdb12;
+  border: 1px solid #b5efdb30;
+  border-radius: 100px;
+  padding: .35rem .7rem;
+  font-size: .68rem;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
 .hero-facts {
   display: flex;
   flex-wrap: wrap;
@@ -144,20 +156,121 @@
   box-shadow: 0 5px 18px #20384c04;
   animation: enter-section .55s .1s ease-out both;
 }
-.st-key-model_detail { animation-delay: .16s; }
+.st-key-model_detail {
+  border-color: #cbdedb;
+  background: linear-gradient(180deg, #f7fcfa, #fff 180px);
+  box-shadow: 0 8px 26px #143c3a09;
+  animation-delay: .16s;
+}
 .confusion-figure { width: 100%; margin: .5rem 0 .75rem; }
 .confusion-figure img { display: block; width: 100%; height: auto; border-radius: 12px; }
 .st-key-report_panel [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
 .st-key-model_detail [data-baseweb="select"] > div {
-  background: #f6f9fb;
-  border-color: #d6e2e8;
-  border-radius: 10px;
-  min-height: 48px;
-  transition: border-color .18s, box-shadow .18s;
+  background: #ffffff;
+  border-color: #c5d9d6;
+  border-radius: 12px;
+  min-height: 54px;
+  box-shadow: 0 2px 6px #18324904;
+  transition: border-color .2s, box-shadow .2s, background .2s;
 }
-.st-key-model_detail [data-baseweb="select"] > div:focus-within {
+.st-key-model_detail [data-baseweb="select"] > div:hover {
+  border-color: #6ca99e;
+  background: #fbfefd;
+}
+.st-key-model_detail [data-baseweb="select"] > div:focus-within,
+.st-key-model_detail [data-baseweb="select"]:has([aria-expanded="true"]) > div {
   border-color: var(--teal);
-  box-shadow: 0 0 0 3px #08857520;
+  box-shadow: 0 0 0 4px #08857518, 0 4px 12px #18324908;
+}
+.st-key-model_detail [data-testid="stWidgetLabel"] p {
+  color: #294d48;
+  font-weight: 650;
+  margin-bottom: .2rem;
+}
+
+/* The selection banner explains the chosen classifier without duplicating metrics. */
+.model-selection,
+.model-waiting {
+  --model-accent: #087f75;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  margin: .65rem 0 .45rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #d5e7e0;
+  border-left: 4px solid var(--model-accent);
+  border-radius: 14px;
+  background: linear-gradient(115deg, #eff8f4, #fafdff);
+  animation: select-model .45s cubic-bezier(.2,.7,.2,1) both;
+}
+.model-symbol {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #cadfd7;
+  border-radius: 14px;
+  color: var(--model-accent);
+  background: #ffffff;
+  box-shadow: 0 0 0 5px #ffffff7a;
+  font-size: .82rem;
+  font-weight: 750;
+  letter-spacing: -.03em;
+}
+.model-copy { flex: 1; min-width: 0; }
+.model-kicker {
+  display: block;
+  margin-bottom: .15rem;
+  color: #567a70;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.model-copy strong {
+  display: block;
+  color: #173e3a;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.model-copy p {
+  color: #58736f;
+  font-size: .78rem;
+  line-height: 1.55;
+  margin: .25rem 0 0;
+}
+.model-ready {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: .35rem;
+  padding: .35rem .65rem;
+  border: 1px solid #c3dfd2;
+  border-radius: 100px;
+  color: #246447;
+  background: #e3f4e9;
+  font-size: .66rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.model-ready::before { content: "✓"; font-weight: 750; }
+.model-waiting {
+  border: 1px dashed #ccdcd9;
+  border-left-width: 1px;
+  background: #f6faf9;
+}
+.model-waiting .model-symbol { color: #77958c; background: #fdfefe; }
+.model-waiting .model-copy strong { font-size: .9rem; color: #47665d; }
+.model-waiting .model-copy p { color: #70877e; }
+
+@keyframes select-model {
+  from { opacity: .25; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: none; }
 }
 
 [class*="st-key-metric_"] [data-testid="stMetric"] {
@@ -242,8 +355,6 @@
 .sidebar-note strong { color: #dff5ec; font-weight: 650; }
 
 [data-testid="stExpander"] { border-color: var(--line); background: white; border-radius: 14px; }
-.page-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; border-top: 1px solid var(--line); padding-top: 1rem; margin-top: .8rem; color: #728296; font-size: .7rem; }
-.page-footer .footer-status { color: #397c6b; }
 
 @keyframes enter-section {
   from { opacity: 0; transform: translateY(12px); }
@@ -262,6 +373,8 @@
   [data-testid="stMainBlockContainer"] { padding: 3rem .9rem 2rem; }
   .st-key-hero { padding: 1.5rem 1.25rem; border-radius: 18px; }
   .st-key-hero h1 { font-size: 2rem; }
+  .hero-eyebrow { gap: .6rem; font-size: .62rem; letter-spacing: .1em; }
+  .hero-student { padding: .3rem .6rem; font-size: .62rem; }
   .dataset-summary { grid-template-columns: 1fr 1fr; }
   .dataset-flow { gap: .45rem; padding: .9rem; }
   .dataset-flow div span { font-size: .64rem; }
@@ -271,16 +384,29 @@
   .summary-item:nth-child(2) { border-left: none; }
   .st-key-upload_prompt, .st-key-model_detail,
   .st-key-matrix_panel, .st-key-report_panel { padding: 1.1rem; border-radius: 14px; }
+  .model-selection, .model-waiting {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: .7rem .85rem;
+    padding: 1rem;
+    align-items: start;
+  }
+  .model-symbol { width: 42px; height: 42px; border-radius: 12px; font-size: .75rem; }
+  .model-copy strong { font-size: .95rem; }
+  .model-ready { grid-column: 2; justify-self: start; }
   [class*="st-key-metric_"] [data-testid="stMetric"] { min-height: 100px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .st-key-hero, .st-key-hero::before, .dataset-summary,
   .st-key-upload_prompt, .st-key-model_detail, .st-key-matrix_panel,
   .st-key-report_panel, [class*="st-key-metric_"] [data-testid="stMetric"],
-  [data-testid="stSidebar"] button {
+  [data-testid="stSidebar"] button, .model-selection, .model-waiting,
+  [data-testid="stSidebar"] .sample-download,
+  .st-key-model_detail [data-baseweb="select"] > div {
     animation: none !important;
     transition: none !important;
   }
   [class*="st-key-metric_"] [data-testid="stMetric"]:hover,
+  [data-testid="stSidebar"] .sample-download:hover,
   [data-testid="stSidebar"] [data-testid="stDownloadButton"] button:hover { transform: none; }
 }

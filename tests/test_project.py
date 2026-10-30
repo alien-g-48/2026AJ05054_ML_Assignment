@@ -4,6 +4,8 @@ Run from the project folder: python -m unittest discover -s tests -v
 """
 
 import pickle
+import re
+from html.parser import HTMLParser
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
@@ -46,6 +48,19 @@ class DecisionScoreFixture:
 
     def decision_function(self, features):
         return np.array([-2.0, 1.0, -1.0, 2.0])
+
+
+class SelectionBannerParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.selections = []
+        self.tags = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tags.append(tag)
+        attributes = dict(attrs)
+        if "model-selection" in attributes.get("class", "").split():
+            self.selections.append(attributes)
 
 
 class AssignmentTests(unittest.TestCase):
@@ -232,6 +247,7 @@ class AssignmentTests(unittest.TestCase):
 
     def assert_no_evaluation_results(self, app):
         """No old scores, model controls or prediction outputs may remain."""
+        self.assert_no_footer(app)
         self.assertEqual(len(app.metric), 0)
         self.assertEqual(len(app.dataframe), 0)
         result_labels = {"Choose a metric to compare", "Select a model to inspect"}
@@ -249,8 +265,11 @@ class AssignmentTests(unittest.TestCase):
         ))
 
     def assert_assignment_identity_and_no_chart(self, app):
-        self.assertEqual(app.title[0].value, "ML Assignment 2 · 2026AJ05054")
+        self.assertEqual(app.title[0].value, "BITS: ML Assignment 2")
         rendered_text = " ".join(item.value for item in app.markdown) + " ".join(item.value for item in app.caption)
+        self.assertIn("2026AJ05054", rendered_text)
+        self.assertIn('class="hero-student"', rendered_text)
+        self.assert_no_footer(app)
         self.assertIn(self.metadata["dataset"]["name"], rendered_text)
         self.assertNotIn("Animated metric comparison", rendered_text)
         self.assertNotIn('class="metric-comparison-chart"', rendered_text)
@@ -258,8 +277,15 @@ class AssignmentTests(unittest.TestCase):
         self.assertNotIn("replay_comparison", [item.key for item in app.button])
         self.assertFalse(any(item.value == "Animated metric comparison" for item in app.subheader))
 
+    def assert_no_footer(self, app):
+        markup = " ".join(item.value for item in app.markdown)
+        self.assertNotIn('class="page-footer"', markup)
+        self.assertNotIn('class="footer-status"', markup)
+        self.assertNotIn("Evaluation · Saved models · No retraining", markup)
+
     def assert_no_selected_model_results(self, app):
         """A valid upload alone must not display a model's evaluation outputs."""
+        self.assert_no_footer(app)
         self.assertEqual(len(app.metric), 0)
         self.assertEqual(len(app.dataframe), 0)
         self.assertFalse(any(
@@ -277,6 +303,7 @@ class AssignmentTests(unittest.TestCase):
 
     def assert_selected_model_results(self, app, name, result, frame):
         """Exactly one set of metric cards belongs to the chosen classifier."""
+        self.assert_no_footer(app)
         self.assertEqual([item.label for item in app.metric], METRICS)
         self.assertEqual(len({item.label for item in app.metric}), 6)
         self.assertEqual(
@@ -299,6 +326,28 @@ class AssignmentTests(unittest.TestCase):
         preview[f"predicted_{TARGET}"] = result["predictions"][:len(preview)]
         pd.testing.assert_frame_equal(app.dataframe[1].value.reset_index(drop=True), preview.reset_index(drop=True))
         self.assert_no_comparison_table(app)
+
+    def assert_model_selection_animation(self, app, name):
+        banners = [item.value for item in app.markdown if 'class="model-selection"' in item.value]
+        self.assertEqual(len(banners), 1)
+        parser = SelectionBannerParser()
+        parser.feed(banners[0])
+        self.assertEqual(len(parser.selections), 1)
+        attributes = parser.selections[0]
+        self.assertEqual(attributes["data-model"], name)
+        self.assertEqual(attributes["role"], "status")
+        self.assertEqual(attributes["aria-live"], "polite")
+        self.assertIn(name, banners[0])
+        self.assertNotIn("script", parser.tags)
+        self.assertNotRegex(banners[0], r"\bon(?:click|load|error)\s*=")
+        animation_css = " ".join(item.value for item in app.markdown if "@keyframes model-choice-" in item.value)
+        tokens = re.findall(r"@keyframes\s+((?:model|metric|result)-choice-[a-f0-9]+)", animation_css)
+        self.assertEqual(len(tokens), 3)
+        self.assertEqual({token.split("-choice-")[0] for token in tokens}, {"model", "metric", "result"})
+        normalized = re.sub(r"\s+", "", animation_css)
+        self.assertIn("@media(prefers-reduced-motion:reduce)", normalized)
+        self.assertIn("animation:none!important", normalized)
+        return tuple(tokens)
 
     def test_initial_app_waits_for_upload_and_keeps_dataset_details_and_download(self):
         with TemporaryDirectory(prefix="waiting-app-downloads-") as static_root, \
@@ -349,6 +398,44 @@ class AssignmentTests(unittest.TestCase):
             app.selectbox(key="model_selection").select("Naive Bayes").run()
             self.assertEqual(list(app.exception), [])
             self.assert_selected_model_results(app, "Naive Bayes", self.details["Naive Bayes"], self.test_data)
+
+    def test_model_selection_callback_replays_accessible_animation_without_duplicate_results(self):
+        upload = SimpleNamespace(name="animation-test.csv", getvalue=lambda: (ROOT / "test_data.csv").read_bytes())
+        with TemporaryDirectory(prefix="selection-animation-downloads-") as static_root, \
+                patch.object(Pipeline, "fit", side_effect=AssertionError("Selection must never train models")) as fit, \
+                patch("streamlit.file_uploader", return_value=upload), \
+                patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
+            app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+            self.assertEqual(list(app.exception), [])
+            self.assert_assignment_identity_and_no_chart(app)
+            self.assert_no_selected_model_results(app)
+            self.assertTrue(any('class="model-waiting"' in item.value for item in app.markdown))
+
+            app.selectbox(key="model_selection").select("Logistic Regression").run()
+            self.assertEqual(list(app.exception), [])
+            first_revision = app.session_state["model_selection_revision"]
+            first_animation = self.assert_model_selection_animation(app, "Logistic Regression")
+            self.assert_selected_model_results(app, "Logistic Regression", self.details["Logistic Regression"], self.test_data)
+            app.run()
+            self.assertEqual(app.session_state["model_selection_revision"], first_revision)
+            self.assertEqual(self.assert_model_selection_animation(app, "Logistic Regression"), first_animation)
+
+            app.selectbox(key="model_selection").select("Support Vector Machine").run()
+            self.assertEqual(list(app.exception), [])
+            self.assertEqual(app.session_state["model_selection_revision"], first_revision + 1)
+            second_animation = self.assert_model_selection_animation(app, "Support Vector Machine")
+            self.assertTrue(all(first != second for first, second in zip(first_animation, second_animation)))
+            self.assert_selected_model_results(app, "Support Vector Machine", self.details["Support Vector Machine"], self.test_data)
+
+            app.selectbox(key="model_selection").select(None).run()
+            self.assertEqual(list(app.exception), [])
+            self.assert_no_selected_model_results(app)
+            self.assertFalse(any('class="model-selection"' in item.value for item in app.markdown))
+            app.selectbox(key="model_selection").select("Logistic Regression").run()
+            self.assertEqual(list(app.exception), [])
+            self.assertNotEqual(self.assert_model_selection_animation(app, "Logistic Regression"), first_animation)
+            self.assert_selected_model_results(app, "Logistic Regression", self.details["Logistic Regression"], self.test_data)
+            fit.assert_not_called()
 
     def test_upload_validation_and_removal_hide_previous_results_in_the_same_session(self):
         first = self.test_data.head(40).copy()

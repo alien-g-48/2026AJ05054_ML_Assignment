@@ -1,4 +1,4 @@
-# ML Assignment 2 · 2026AJ05054: UCI Phishing Websites
+# BITS: ML Assignment 2 · 2026AJ05054: UCI Phishing Websites
 
 ## 1. Problem statement
 

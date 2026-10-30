@@ -55,9 +55,17 @@ def assert_no_comparison_chart(test, app):
     test.assertFalse(any('class="metric-comparison-chart"' in item.value for item in app.markdown))
 
 
+def assert_no_footer(test, app):
+    markup = " ".join(item.value for item in app.markdown)
+    test.assertNotIn('class="page-footer"', markup)
+    test.assertNotIn('class="footer-status"', markup)
+    test.assertNotIn("Evaluation · Saved models · No retraining", markup)
+
+
 def assert_waiting_for_model(test, app):
     """An uploaded CSV alone must not reveal a default model's results."""
     test.assertEqual(list(app.exception), [])
+    assert_no_footer(test, app)
     test.assertIsNone(app.selectbox(key="model_selection").value)
     test.assertEqual(len(app.metric), 0)
     test.assertEqual(len(app.dataframe), 0)
@@ -68,6 +76,7 @@ def assert_waiting_for_model(test, app):
 def assert_selected_metrics(test, app, result):
     """Display the selected model's six scores once, without a comparison table."""
     test.assertEqual(list(app.exception), [])
+    assert_no_footer(test, app)
     test.assertEqual([metric.label for metric in app.metric], METRICS)
     expected_values = [
         "N/A" if result["metrics"][metric] is None or pd.isna(result["metrics"][metric])
@@ -344,6 +353,7 @@ class GenericDatasetTests(unittest.TestCase):
 
         def assert_waiting_for_upload(app):
             self.assertEqual(list(app.exception), [])
+            assert_no_footer(self, app)
             self.assertEqual(list(app.error), [])
             self.assertEqual(len(app.dataframe), 0)
             self.assertEqual(len(app.metric), 0)
@@ -359,7 +369,8 @@ class GenericDatasetTests(unittest.TestCase):
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
             assert_waiting_for_upload(app)
-            self.assertEqual(app.title[0].value, "ML Assignment 2 · 2026AJ05054")
+            self.assertEqual(app.title[0].value, "BITS: ML Assignment 2")
+            self.assertTrue(any('class="hero-student"' in item.value and "2026AJ05054" in item.value for item in app.markdown))
             self.assertTrue(any(profile["metadata"]["dataset"]["name"] in item.value for item in app.markdown))
             downloaded_bytes = assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
             custom_download_href = sample_download_href(app)
@@ -422,6 +433,7 @@ class GenericDatasetTests(unittest.TestCase):
                 with self.subTest(upload=filename), patch("streamlit.file_uploader", return_value=upload):
                     app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
                     self.assertEqual(list(app.exception), [])
+                    assert_no_footer(self, app)
                     assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
                     if error_message:
                         self.assertTrue(any(error_message in item.value for item in app.error))

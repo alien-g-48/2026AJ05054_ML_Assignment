@@ -4,6 +4,7 @@ from io import BytesIO
 from base64 import b64encode
 from html import escape
 from pathlib import Path
+import hashlib
 import json
 import os
 
@@ -17,9 +18,16 @@ from downloads import sample_download_url
 
 
 MAX_TEST_ROWS = MAX_ROWS
-ASSIGNMENT_TITLE = "ML Assignment 2"
+ASSIGNMENT_TITLE = "BITS: ML Assignment 2"
 STUDENT_ID = "2026AJ05054"
 APP_TITLE = f"{ASSIGNMENT_TITLE} · {STUDENT_ID}"
+MODEL_PRESENTATION = {
+    "Logistic Regression": ("LR", "Learns a linear boundary between classes.", "#087f75"),
+    "Decision Tree": ("DT", "Follows learned decision rules to classify each record.", "#4f62b6"),
+    "KNN": ("KNN", "Classifies records using their nearest training examples.", "#2871a4"),
+    "Naive Bayes": ("NB", "Combines feature likelihoods to estimate the class.", "#9d6c12"),
+    "Support Vector Machine": ("SVM", "Uses a separating boundary with a wide margin between classes.", "#7853b3"),
+}
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -103,6 +111,63 @@ def refresh_test_results():
     st.session_state["upload_revision"] = st.session_state.get("upload_revision", 0) + 1
 
 
+def refresh_model_selection():
+    """Replay the selection transition when the native dropdown changes."""
+    st.session_state["model_selection_revision"] = st.session_state.get("model_selection_revision", 0) + 1
+
+
+def show_selected_model(model_name):
+    """Show selection feedback; animation never changes scores or predictions."""
+    symbol, description, accent = MODEL_PRESENTATION[model_name]
+    revision = ":".join([
+        model_name,
+        str(st.session_state.get("model_selection_revision", 0)),
+        str(st.session_state.get("upload_revision", 0)),
+    ])
+    # Safe CSS identifiers change on selection, so transitions replay even
+    # when Streamlit reuses existing metric elements during a rerun.
+    token = hashlib.sha256(revision.encode()).hexdigest()[:12]
+    st.markdown(
+        f"""<style>
+@keyframes model-choice-{token} {{
+  from {{opacity:.3;transform:translateY(8px) scale(.985);}}
+  to {{opacity:1;transform:none;}}
+}}
+@keyframes metric-choice-{token} {{
+  from {{opacity:.25;transform:translateY(10px);}}
+  to {{opacity:1;transform:none;}}
+}}
+@keyframes result-choice-{token} {{
+  from {{opacity:.4;transform:translateY(8px);}}
+  to {{opacity:1;transform:none;}}
+}}
+.st-key-model_detail {{--model-accent:{accent};}}
+.model-selection {{animation:model-choice-{token} .42s ease-out both;}}
+[class*="st-key-metric_"] [data-testid="stMetric"] {{
+  animation-name:metric-choice-{token};animation-duration:.48s;animation-fill-mode:both;
+}}
+.st-key-matrix_panel,.st-key-report_panel {{
+  animation-name:result-choice-{token};animation-duration:.5s;animation-fill-mode:both;
+}}
+@media (prefers-reduced-motion:reduce) {{
+  .model-selection,[class*="st-key-metric_"] [data-testid="stMetric"],
+  .st-key-matrix_panel,.st-key-report_panel {{animation:none!important;transform:none!important;}}
+}}
+</style>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="model-selection" data-model="{escape(model_name, quote=True)}" '
+        f'role="status" aria-live="polite" aria-atomic="true" style="--model-accent:{accent}">'
+        f'<span class="model-symbol" aria-hidden="true">{symbol}</span>'
+        '<div class="model-copy"><span class="model-kicker">Selected classifier</span>'
+        f'<strong>{escape(model_name)}</strong><p>{escape(description)}</p></div>'
+        '<span class="model-ready"><span aria-hidden="true">✓</span> Results ready</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def show_confusion_matrix(matrix, labels, model_name):
     count = len(labels)
     size = min(16, max(7, count * .65))
@@ -161,14 +226,6 @@ def show_confusion_matrix(matrix, labels, model_name):
     plt.close(figure)
 
 
-def show_footer():
-    st.markdown(
-        f'<div class="page-footer"><span>{APP_TITLE}</span>'
-        '<span class="footer-status">Evaluation · Saved models · No retraining</span></div>',
-        unsafe_allow_html=True,
-    )
-
-
 def main():
     profiles = discover_profiles()
     if not profiles:
@@ -193,15 +250,16 @@ def main():
     dataset = metadata["dataset"]
     with st.container(key="hero"):
         st.markdown(
-            '<div class="hero-eyebrow">MACHINE LEARNING / CLASSIFICATION</div>',
+            '<div class="hero-eyebrow"><span>MACHINE LEARNING / CLASSIFICATION</span>'
+            f'<span class="hero-student">Student ID · {STUDENT_ID}</span></div>',
             unsafe_allow_html=True,
         )
-        st.title(APP_TITLE)
+        st.title(ASSIGNMENT_TITLE)
         st.markdown(
             f'<p class="hero-dataset">Dataset: {escape(dataset["name"])}</p>',
             unsafe_allow_html=True,
         )
-        st.write("Compare five classifiers, explore prediction errors, and evaluate saved models on labeled test data.")
+        st.write("Upload your test data, choose a classifier, and explore its predictions.")
         classification_type = "Binary classification" if len(metadata["classes"]) == 2 else "Multiclass classification"
         st.markdown(
             '<div class="hero-facts"><span>5 classification models</span>'
@@ -294,7 +352,6 @@ def main():
             st.subheader("Upload your test data to begin")
             st.write("Download test_data.csv from the Test data panel, then upload it using Upload test CSV. You can also upload your own labeled test CSV with the required columns.")
             st.info("Upload a valid test CSV, then select one of the five models to view its six evaluation metrics, confusion matrix and classification report.")
-        show_footer()
         return
 
     csv_bytes = uploaded_file.getvalue()
@@ -307,7 +364,6 @@ def main():
     except (ValueError, KeyError, UnicodeDecodeError, pd.errors.ParserError) as error:
         st.error(f"The test CSV could not be evaluated: {error}")
         st.info("Upload a valid labeled test CSV to display results. Download the test sample for the selected dataset to check the required format.")
-        show_footer()
         return
 
     st.success(f"Test data loaded from {data_name}: {len(frame):,} test rows. Choose a model below to view its results.")
@@ -326,14 +382,24 @@ def main():
     )
     with st.container(key="model_detail"):
         st.markdown('<div class="section-eyebrow">01 / SELECT A MODEL</div>', unsafe_allow_html=True)
+        st.subheader("Choose your classifier")
         selected_model = st.selectbox(
             "Select a model to inspect", list(models), index=None,
             placeholder="Choose a model...", key="model_selection",
+            help="Select a classifier to view its results on your uploaded test data. You can switch models at any time.",
+            on_change=refresh_model_selection,
         )
         if selected_model is None:
-            st.info("Select a model to display its evaluation metrics, confusion matrix and classification report.")
+            st.markdown(
+                '<div class="model-waiting"><span class="model-symbol" aria-hidden="true">↗</span>'
+                '<div class="model-copy"><strong>Your next step: choose a model</strong>'
+                '<p>Its six metrics, confusion matrix and classification report will appear here.</p>'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
         else:
             result = details[selected_model]
+            show_selected_model(selected_model)
             st.subheader(f"{selected_model}: evaluation metrics")
             if result.get("auc_reason"):
                 st.warning("AUC is unavailable: " + result["auc_reason"])
@@ -363,7 +429,6 @@ def main():
                         )
 
     if selected_model is None:
-        show_footer()
         return
 
     with st.container(key="matrix_panel"):
@@ -400,9 +465,6 @@ def main():
         preview[f"predicted_{metadata['target_column']}"] = result["predictions"][: len(preview)]
         st.dataframe(preview, hide_index=True, width="stretch")
         st.caption("Showing the first 20 rows. The target column contains the actual label.")
-
-    show_footer()
-
 
 if __name__ == "__main__":
     main()
