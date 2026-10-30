@@ -240,25 +240,19 @@
 }
 .model-copy p {
   color: #58736f;
-  font-size: .78rem;
-  line-height: 1.55;
+  font-size: .85rem;
+  line-height: 1.65;
   margin: .25rem 0 0;
 }
-.model-ready {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: .35rem;
-  padding: .35rem .65rem;
-  border: 1px solid #c3dfd2;
-  border-radius: 100px;
-  color: #246447;
-  background: #e3f4e9;
+.model-definition-label {
+  display: block;
+  margin: .4rem 0 .15rem;
+  color: var(--model-accent, #087f75);
   font-size: .66rem;
-  font-weight: 650;
-  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
-.model-ready::before { content: "✓"; font-weight: 750; }
 .model-waiting {
   border: 1px dashed #ccdcd9;
   border-left-width: 1px;
@@ -393,7 +387,6 @@
   }
   .model-symbol { width: 42px; height: 42px; border-radius: 12px; font-size: .75rem; }
   .model-copy strong { font-size: .95rem; }
-  .model-ready { grid-column: 2; justify-self: start; }
   [class*="st-key-metric_"] [data-testid="stMetric"] { min-height: 100px; }
 }
 @media (prefers-reduced-motion: reduce) {

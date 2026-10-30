@@ -304,6 +304,20 @@ class AssignmentTests(unittest.TestCase):
     def assert_selected_model_results(self, app, name, result, frame):
         """Exactly one set of metric cards belongs to the chosen classifier."""
         self.assert_no_footer(app)
+        definitions = {
+            "Logistic Regression": "estimates class probabilities",
+            "Decision Tree": "learned if-then rules",
+            "KNN": "15 neighbours",
+            "Naive Bayes": "independent within each class",
+            "Support Vector Machine": "RBF kernel",
+        }
+        markup = " ".join(item.value for item in app.markdown)
+        self.assertNotIn("Results ready", markup)
+        self.assertNotIn('class="model-ready"', markup)
+        selected_banner = next(item.value for item in app.markdown if 'class="model-selection"' in item.value)
+        self.assertIn('class="model-definition"', selected_banner)
+        self.assertIn("Basic definition", selected_banner)
+        self.assertIn(definitions[name], selected_banner)
         self.assertEqual([item.label for item in app.metric], METRICS)
         self.assertEqual(len({item.label for item in app.metric}), 6)
         self.assertEqual(

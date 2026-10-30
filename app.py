@@ -22,11 +22,31 @@ ASSIGNMENT_TITLE = "BITS: ML Assignment 2"
 STUDENT_ID = "2026AJ05054"
 APP_TITLE = f"{ASSIGNMENT_TITLE} · {STUDENT_ID}"
 MODEL_PRESENTATION = {
-    "Logistic Regression": ("LR", "Learns a linear boundary between classes.", "#087f75"),
-    "Decision Tree": ("DT", "Follows learned decision rules to classify each record.", "#4f62b6"),
-    "KNN": ("KNN", "Classifies records using their nearest training examples.", "#2871a4"),
-    "Naive Bayes": ("NB", "Combines feature likelihoods to estimate the class.", "#9d6c12"),
-    "Support Vector Machine": ("SVM", "Uses a separating boundary with a wide margin between classes.", "#7853b3"),
+    "Logistic Regression": (
+        "LR",
+        "A classification algorithm that estimates class probabilities from a weighted combination of input features and predicts the most likely class.",
+        "#087f75",
+    ),
+    "Decision Tree": (
+        "DT",
+        "A classification algorithm that follows a sequence of learned if-then rules about the features to decide which class a record belongs to.",
+        "#4f62b6",
+    ),
+    "KNN": (
+        "KNN",
+        "K-Nearest Neighbors predicts a record's class using similar training examples nearby. This implementation uses 15 neighbours and gives closer examples more influence.",
+        "#2871a4",
+    ),
+    "Naive Bayes": (
+        "NB",
+        "A probabilistic classifier based on Bayes' theorem that assumes features are independent within each class. The Gaussian version used here models each feature within a class using a normal, bell-shaped distribution.",
+        "#9d6c12",
+    ),
+    "Support Vector Machine": (
+        "SVM",
+        "A classifier that learns a boundary separating classes while seeking a wide margin between them. The RBF kernel used here allows that boundary to be nonlinear.",
+        "#7853b3",
+    ),
 }
 
 st.set_page_config(
@@ -161,8 +181,9 @@ def show_selected_model(model_name):
         f'role="status" aria-live="polite" aria-atomic="true" style="--model-accent:{accent}">'
         f'<span class="model-symbol" aria-hidden="true">{symbol}</span>'
         '<div class="model-copy"><span class="model-kicker">Selected classifier</span>'
-        f'<strong>{escape(model_name)}</strong><p>{escape(description)}</p></div>'
-        '<span class="model-ready"><span aria-hidden="true">✓</span> Results ready</span>'
+        f'<strong>{escape(model_name)}</strong>'
+        '<p class="model-definition"><span class="model-definition-label">Basic definition</span>'
+        f'{escape(description)}</p></div>'
         '</div>',
         unsafe_allow_html=True,
     )
