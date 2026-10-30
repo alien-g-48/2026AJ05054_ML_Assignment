@@ -136,6 +136,43 @@ def refresh_model_selection():
     st.session_state["model_selection_revision"] = st.session_state.get("model_selection_revision", 0) + 1
 
 
+def sidebar_model_picker(panel, models, ready=False, invalid=False):
+    """Keep the model control beside the upload without bypassing CSV checks."""
+    with panel:
+        st.markdown('<div class="sidebar-step">02 / CLASSIFIER</div>', unsafe_allow_html=True)
+        st.header("Choose a model")
+        if not ready:
+            message = "Fix the uploaded CSV to unlock the models." if invalid else "Upload a valid test CSV to unlock the five models."
+            st.markdown(
+                '<div class="sidebar-model-lock"><span aria-hidden="true">↑</span>'
+                f'<p>{message}</p></div>',
+                unsafe_allow_html=True,
+            )
+            return None
+        selected_model = st.selectbox(
+            "Select a model to inspect", list(models), index=None,
+            placeholder="Choose a model...", key="model_selection",
+            help="View one classifier at a time. Switch models to compare results on the same uploaded test data.",
+            on_change=refresh_model_selection,
+        )
+        if selected_model is None:
+            st.markdown(
+                '<p class="sidebar-model-hint">Choose a classifier to display its definition and results.</p>',
+                unsafe_allow_html=True,
+            )
+        else:
+            symbol, _, accent = MODEL_PRESENTATION[selected_model]
+            st.markdown(
+                f'<div class="sidebar-selected-model" data-model="{escape(selected_model, quote=True)}" '
+                f'style="--model-accent:{accent}">'
+                f'<span class="sidebar-model-symbol" aria-hidden="true">{symbol}</span>'
+                '<div class="sidebar-model-copy"><span class="sidebar-selected-label">Viewing</span>'
+                f'<strong>{escape(selected_model)}</strong></div></div>',
+                unsafe_allow_html=True,
+            )
+        return selected_model
+
+
 def show_selected_model(model_name):
     """Show selection feedback; animation never changes scores or predictions."""
     symbol, description, accent = MODEL_PRESENTATION[model_name]
@@ -161,8 +198,13 @@ def show_selected_model(model_name):
   from {{opacity:.4;transform:translateY(8px);}}
   to {{opacity:1;transform:none;}}
 }}
+@keyframes sidebar-choice-{token} {{
+  from {{opacity:.35;transform:translateX(-7px);}}
+  to {{opacity:1;transform:none;}}
+}}
 .st-key-model_detail {{--model-accent:{accent};}}
 .model-selection {{animation:model-choice-{token} .42s ease-out both;}}
+.sidebar-selected-model {{animation:sidebar-choice-{token} .4s ease-out both;}}
 [class*="st-key-metric_"] [data-testid="stMetric"] {{
   animation-name:metric-choice-{token};animation-duration:.48s;animation-fill-mode:both;
 }}
@@ -170,7 +212,7 @@ def show_selected_model(model_name):
   animation-name:result-choice-{token};animation-duration:.5s;animation-fill-mode:both;
 }}
 @media (prefers-reduced-motion:reduce) {{
-  .model-selection,[class*="st-key-metric_"] [data-testid="stMetric"],
+  .model-selection,.sidebar-selected-model,[class*="st-key-metric_"] [data-testid="stMetric"],
   .st-key-matrix_panel,.st-key-report_panel {{animation:none!important;transform:none!important;}}
 }}
 </style>""",
@@ -303,47 +345,45 @@ def main():
             'stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" '
             'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
             f'<div><div class="brand-name">{ASSIGNMENT_TITLE}</div>'
-            f'<div class="brand-subtitle">{STUDENT_ID} · Classifier Comparison</div></div></div>'
-            '<div class="sidebar-step">01 / EVALUATION DATA</div>',
+            f'<div class="brand-subtitle">{STUDENT_ID} · Classifier Comparison</div></div></div>',
             unsafe_allow_html=True,
         )
-        st.header("Test data")
-        st.write(
-            "Download a matching test sample or upload labeled test data for the selected trained dataset."
-        )
-        # Embed the exact CSV bytes so saving does not depend on a transient
-        # Streamlit media URL. Only the saved sample is made downloadable.
+        st.caption("Upload your test data, then choose a classifier.")
+        with st.container(key="sidebar_upload_panel"):
+            st.markdown('<div class="sidebar-step">01 / TEST DATA</div>', unsafe_allow_html=True)
+            st.header("Test data")
+            st.write("Download the sample or upload your own matching test CSV.")
+            # Only the saved sample is made downloadable; uploads stay private.
+            st.markdown(
+                f'<a class="sample-download" href="data:text/csv;base64,{b64encode(sample_bytes).decode("ascii")}" '
+                'download="test_data.csv" target="_self">'
+                '<span aria-hidden="true">↓</span> Download test_data.csv</a>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<a class="sample-preview" href="{sample_download_url(sample_bytes)}" '
+                'target="_blank" rel="noopener noreferrer">Open CSV in a new tab</a>',
+                unsafe_allow_html=True,
+            )
+            uploaded_file = st.file_uploader(
+                "Upload test CSV", type=["csv"], key=f"test_upload_{model_dir}",
+                help=f"Include {dataset['feature_count']} input features and the {metadata['target_column']} target column.",
+                on_change=refresh_test_results,
+            )
+            st.caption("CSV · Up to 5 MB · 20,000 rows")
+        # Reserve the position here; populate it once CSV validation is known.
+        model_picker_panel = st.container(key="sidebar_model_panel")
         st.markdown(
-            f'<a class="sample-download" href="data:text/csv;base64,{b64encode(sample_bytes).decode("ascii")}" '
-            'download="test_data.csv" target="_self">'
-            '<span aria-hidden="true">↓</span> Download test_data.csv</a>',
+            '<div class="sidebar-note">Switch classifiers to explore the same test data from five perspectives.</div>',
             unsafe_allow_html=True,
         )
-        st.markdown(
-            f'<a class="sample-preview" href="{sample_download_url(sample_bytes)}" '
-            'target="_blank" rel="noopener noreferrer">Open CSV in a new tab</a>',
-            unsafe_allow_html=True,
-        )
-        st.caption("If an embedded preview blocks saving, open the local app in your regular browser. The same sample is also in the project folder.")
-        st.write("")
-        uploaded_file = st.file_uploader(
-            "Upload test CSV", type=["csv"], key=f"test_upload_{model_dir}",
-            help=f"Include {dataset['feature_count']} input features and the {metadata['target_column']} target column.",
-            on_change=refresh_test_results,
-        )
-        st.caption("CSV only · Up to 5 MB · 20,000 rows · Results refresh automatically")
-        st.divider()
-        st.markdown(
-            '<div class="sidebar-note"><strong>A fair comparison.</strong><br>'
-            'All five models evaluate the same rows. Uploads are used for evaluation, with no retraining.</div>',
-            unsafe_allow_html=True,
-        )
-        st.caption(f"Current dataset: {dataset['name']}")
-        st.caption(f"Target column: {metadata['target_column']}")
         with st.expander("Required CSV format"):
+            st.caption(f"Current dataset: {dataset['name']}")
+            st.caption(f"Target column: {metadata['target_column']}")
             st.write("These feature columns and the target are required. Column order can differ.")
             st.code(",".join(metadata["feature_names"] + [metadata["target_column"]]), language=None)
             st.write("Classes: " + ", ".join(map(str, metadata["classes"])))
+            st.caption("If an embedded preview blocks saving, open the app in your regular browser. The sample is also in the project folder.")
             st.caption("For a different dataset, first train its models locally with train.py.")
 
     split = metadata.get("split", {})
@@ -368,6 +408,7 @@ def main():
         st.write("Removing the uploaded file hides the results until another valid test CSV is uploaded. Evaluating the entire original dataset would include training rows and would not provide an independent test of performance.")
 
     if uploaded_file is None:
+        sidebar_model_picker(model_picker_panel, models)
         with st.container(key="upload_prompt"):
             st.markdown('<div class="section-eyebrow">READY TO EVALUATE</div>', unsafe_allow_html=True)
             st.subheader("Upload your test data to begin")
@@ -383,11 +424,13 @@ def main():
                 csv_bytes, version, str(model_dir), st.session_state.get("upload_revision", 0),
             )
     except (ValueError, KeyError, UnicodeDecodeError, pd.errors.ParserError) as error:
+        sidebar_model_picker(model_picker_panel, models, invalid=True)
         st.error(f"The test CSV could not be evaluated: {error}")
         st.info("Upload a valid labeled test CSV to display results. Download the test sample for the selected dataset to check the required format.")
         return
 
-    st.success(f"Test data loaded from {data_name}: {len(frame):,} test rows. Choose a model below to view its results.")
+    selected_model = sidebar_model_picker(model_picker_panel, models, ready=True)
+    st.success(f"Test data loaded from {data_name}: {len(frame):,} test rows. Use the left sidebar to choose a model.")
 
     # Uploaded filenames are escaped before entering the static HTML summary.
     st.markdown(
@@ -402,19 +445,12 @@ def main():
         unsafe_allow_html=True,
     )
     with st.container(key="model_detail"):
-        st.markdown('<div class="section-eyebrow">01 / SELECT A MODEL</div>', unsafe_allow_html=True)
-        st.subheader("Choose your classifier")
-        selected_model = st.selectbox(
-            "Select a model to inspect", list(models), index=None,
-            placeholder="Choose a model...", key="model_selection",
-            help="Select a classifier to view its results on your uploaded test data. You can switch models at any time.",
-            on_change=refresh_model_selection,
-        )
+        st.markdown('<div class="section-eyebrow">01 / MODEL RESULTS</div>', unsafe_allow_html=True)
         if selected_model is None:
             st.markdown(
                 '<div class="model-waiting"><span class="model-symbol" aria-hidden="true">↗</span>'
-                '<div class="model-copy"><strong>Your next step: choose a model</strong>'
-                '<p>Its six metrics, confusion matrix and classification report will appear here.</p>'
+                '<div class="model-copy"><strong>Choose a model in the left sidebar</strong>'
+                '<p>Open the sidebar and select a classifier. Its six metrics, confusion matrix and classification report will appear here.</p>'
                 '</div></div>',
                 unsafe_allow_html=True,
             )

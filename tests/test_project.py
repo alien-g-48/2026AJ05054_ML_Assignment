@@ -51,15 +51,16 @@ class DecisionScoreFixture:
 
 
 class SelectionBannerParser(HTMLParser):
-    def __init__(self):
+    def __init__(self, class_name="model-selection"):
         super().__init__()
+        self.class_name = class_name
         self.selections = []
         self.tags = []
 
     def handle_starttag(self, tag, attrs):
         self.tags.append(tag)
         attributes = dict(attrs)
-        if "model-selection" in attributes.get("class", "").split():
+        if self.class_name in attributes.get("class", "").split():
             self.selections.append(attributes)
 
 
@@ -252,6 +253,8 @@ class AssignmentTests(unittest.TestCase):
         self.assertEqual(len(app.dataframe), 0)
         result_labels = {"Choose a metric to compare", "Select a model to inspect"}
         self.assertFalse(result_labels & {item.label for item in app.selectbox})
+        self.assertNotIn("model_selection", [item.key for item in app.sidebar.selectbox])
+        self.assertFalse(any('class="sidebar-selected-model"' in item.value for item in app.sidebar.markdown))
         result_titles = {
             "Comparison of all five models", "Animated metric comparison",
             "Confusion matrix", "Classification report",
@@ -294,7 +297,37 @@ class AssignmentTests(unittest.TestCase):
             for item in app.subheader
         ))
         self.assertFalse(any('class="confusion-figure"' in item.value for item in app.markdown))
+        self.assert_sidebar_model_picker(app)
+        self.assertTrue(any(
+            'class="model-waiting"' in item.value and "sidebar" in item.value.lower()
+            for item in app.main.markdown
+        ))
         self.assert_no_comparison_table(app)
+
+    def assert_sidebar_model_picker(self, app, selected=None):
+        """One sidebar control owns the selection; results belong to the main page."""
+        side_pickers = [item for item in app.sidebar.selectbox if item.key == "model_selection"]
+        self.assertEqual(len(side_pickers), 1)
+        self.assertEqual(side_pickers[0].options, list(MODEL_FILES))
+        self.assertEqual(side_pickers[0].value, selected)
+        self.assertNotIn("model_selection", [item.key for item in app.main.selectbox])
+        self.assertEqual(sum(item.key == "model_selection" for item in app.selectbox), 1)
+        self.assertEqual(len(app.sidebar.metric), 0)
+        self.assertEqual(len(app.sidebar.dataframe), 0)
+        indicators = [
+            item.value for item in app.sidebar.markdown
+            if 'class="sidebar-selected-model"' in item.value
+        ]
+        if selected is None:
+            self.assertEqual(indicators, [])
+        else:
+            self.assertEqual(len(indicators), 1)
+            parser = SelectionBannerParser("sidebar-selected-model")
+            parser.feed(indicators[0])
+            self.assertEqual(len(parser.selections), 1)
+            self.assertEqual(parser.selections[0]["data-model"], selected)
+            self.assertIn(selected, indicators[0])
+            self.assertNotIn("Results ready", indicators[0])
 
     def assert_no_comparison_table(self, app):
         self.assertNotIn("Comparison of all five models", [item.value for item in app.subheader])
@@ -304,6 +337,7 @@ class AssignmentTests(unittest.TestCase):
     def assert_selected_model_results(self, app, name, result, frame):
         """Exactly one set of metric cards belongs to the chosen classifier."""
         self.assert_no_footer(app)
+        self.assert_sidebar_model_picker(app, name)
         definitions = {
             "Logistic Regression": "estimates class probabilities",
             "Decision Tree": "learned if-then rules",
@@ -314,11 +348,12 @@ class AssignmentTests(unittest.TestCase):
         markup = " ".join(item.value for item in app.markdown)
         self.assertNotIn("Results ready", markup)
         self.assertNotIn('class="model-ready"', markup)
-        selected_banner = next(item.value for item in app.markdown if 'class="model-selection"' in item.value)
+        selected_banner = next(item.value for item in app.main.markdown if 'class="model-selection"' in item.value)
         self.assertIn('class="model-definition"', selected_banner)
         self.assertIn("Basic definition", selected_banner)
         self.assertIn(definitions[name], selected_banner)
         self.assertEqual([item.label for item in app.metric], METRICS)
+        self.assertEqual([item.label for item in app.main.metric], METRICS)
         self.assertEqual(len({item.label for item in app.metric}), 6)
         self.assertEqual(
             [item.value for item in app.metric],
@@ -342,7 +377,7 @@ class AssignmentTests(unittest.TestCase):
         self.assert_no_comparison_table(app)
 
     def assert_model_selection_animation(self, app, name):
-        banners = [item.value for item in app.markdown if 'class="model-selection"' in item.value]
+        banners = [item.value for item in app.main.markdown if 'class="model-selection"' in item.value]
         self.assertEqual(len(banners), 1)
         parser = SelectionBannerParser()
         parser.feed(banners[0])
@@ -358,10 +393,14 @@ class AssignmentTests(unittest.TestCase):
         tokens = re.findall(r"@keyframes\s+((?:model|metric|result)-choice-[a-f0-9]+)", animation_css)
         self.assertEqual(len(tokens), 3)
         self.assertEqual({token.split("-choice-")[0] for token in tokens}, {"model", "metric", "result"})
+        sidebar_tokens = re.findall(r"@keyframes\s+(sidebar-choice-[a-f0-9]+)", animation_css)
+        self.assertEqual(len(sidebar_tokens), 1)
+        self.assertEqual(sidebar_tokens[0].split("-choice-")[-1], tokens[0].split("-choice-")[-1])
         normalized = re.sub(r"\s+", "", animation_css)
         self.assertIn("@media(prefers-reduced-motion:reduce)", normalized)
         self.assertIn("animation:none!important", normalized)
-        return tuple(tokens)
+        self.assertIn(".sidebar-selected-model", normalized)
+        return tuple(tokens + sidebar_tokens)
 
     def test_initial_app_waits_for_upload_and_keeps_dataset_details_and_download(self):
         with TemporaryDirectory(prefix="waiting-app-downloads-") as static_root, \

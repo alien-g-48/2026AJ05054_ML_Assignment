@@ -67,6 +67,11 @@ def assert_waiting_for_model(test, app):
     test.assertEqual(list(app.exception), [])
     assert_no_footer(test, app)
     test.assertIsNone(app.selectbox(key="model_selection").value)
+    test.assertEqual(
+        [item.key for item in app.sidebar.selectbox if item.key == "model_selection"],
+        ["model_selection"],
+    )
+    test.assertNotIn("model_selection", [item.key for item in app.main.selectbox])
     test.assertEqual(len(app.metric), 0)
     test.assertEqual(len(app.dataframe), 0)
     test.assertFalse(any('class="confusion-figure"' in item.value for item in app.markdown))
@@ -77,7 +82,14 @@ def assert_selected_metrics(test, app, result):
     """Display the selected model's six scores once, without a comparison table."""
     test.assertEqual(list(app.exception), [])
     assert_no_footer(test, app)
+    test.assertEqual(
+        [item.key for item in app.sidebar.selectbox if item.key == "model_selection"],
+        ["model_selection"],
+    )
+    test.assertNotIn("model_selection", [item.key for item in app.main.selectbox])
+    test.assertEqual(len(app.sidebar.metric), 0)
     test.assertEqual([metric.label for metric in app.metric], METRICS)
+    test.assertEqual([metric.label for metric in app.main.metric], METRICS)
     expected_values = [
         "N/A" if result["metrics"][metric] is None or pd.isna(result["metrics"][metric])
         else f"{result['metrics'][metric]:.4f}"
