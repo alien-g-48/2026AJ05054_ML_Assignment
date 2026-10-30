@@ -285,7 +285,7 @@ def main():
     st.caption(f"Training dataset: {dataset_text} · {dataset['feature_count']} input features · Target: {metadata['target_column']} · {len(metadata['classes'])} classes")
     with st.expander("How the dataset is used"):
         st.write("The training command loads the full source dataset, creates a separate training and test partition, and fits all five classifiers using only the training rows. The fitted preprocessing and classifiers are saved in .pkl files.")
-        st.write("The app loads those saved models and waits for a labeled test CSV. Uploading a valid file displays the comparison table, metrics, confusion matrix, report and predictions using only that file. The models are not retrained.")
+        st.write("The app loads those saved models and waits for a labeled test CSV. After uploading a valid file, choose a model to display its metrics, confusion matrix, report and predictions using only that file. Switch models to inspect each classifier on the same test data. The models are not retrained.")
         st.write("Removing the uploaded file hides the results until another valid test CSV is uploaded. Evaluating the entire original dataset would include training rows and would not provide an independent test of performance.")
 
     if uploaded_file is None:
@@ -293,7 +293,7 @@ def main():
             st.markdown('<div class="section-eyebrow">READY TO EVALUATE</div>', unsafe_allow_html=True)
             st.subheader("Upload your test data to begin")
             st.write("Download test_data.csv from the Test data panel, then upload it using Upload test CSV. You can also upload your own labeled test CSV with the required columns.")
-            st.info("Your results will appear here after a valid upload: all five models, six evaluation metrics, and the selected model's confusion matrix and classification report.")
+            st.info("Upload a valid test CSV, then select one of the five models to view its six evaluation metrics, confusion matrix and classification report.")
         show_footer()
         return
 
@@ -301,7 +301,7 @@ def main():
     data_name = uploaded_file.name
     try:
         with st.spinner("Evaluating saved models on your uploaded test data..."):
-            frame, comparison, details = evaluate_csv(
+            frame, _comparison, details = evaluate_csv(
                 csv_bytes, version, str(model_dir), st.session_state.get("upload_revision", 0),
             )
     except (ValueError, KeyError, UnicodeDecodeError, pd.errors.ParserError) as error:
@@ -310,7 +310,7 @@ def main():
         show_footer()
         return
 
-    st.success(f"Results refreshed from {data_name}: {len(frame):,} test rows evaluated with all five saved models.")
+    st.success(f"Test data loaded from {data_name}: {len(frame):,} test rows. Choose a model below to view its results.")
 
     # Uploaded filenames are escaped before entering the static HTML summary.
     st.markdown(
@@ -324,56 +324,50 @@ def main():
         f'<div class="summary-detail">{len(metadata["classes"])} target classes</div></div></div>',
         unsafe_allow_html=True,
     )
-    auc_reasons = {result["auc_reason"] for result in details.values() if result.get("auc_reason")}
-    if auc_reasons:
-        st.warning("AUC is unavailable: " + " ".join(sorted(auc_reasons)))
-
-    with st.container(key="comparison"):
-        st.markdown('<div class="section-eyebrow">01 / THE BIG PICTURE</div>', unsafe_allow_html=True)
-        st.subheader("Comparison of all five models")
-        st.caption("One test set. Five perspectives. The highest value in each metric is highlighted.")
-        st.dataframe(
-            comparison.style.highlight_max(subset=METRICS, color="#e0f2e9"),
-            hide_index=True,
-            width="stretch",
-            column_config={
-                metric: st.column_config.NumberColumn(metric, format="%.4f")
-                for metric in METRICS
-            },
-        )
-
     with st.container(key="model_detail"):
-        st.markdown('<div class="section-eyebrow">02 / LOOK CLOSER</div>', unsafe_allow_html=True)
-        selected_model = st.selectbox("Select a model to inspect", list(models), key="model_selection")
-        result = details[selected_model]
-        st.subheader(f"{selected_model}: evaluation metrics")
-        if len(result["classes"]) == 2:
-            positive = metadata["positive_class"]
-            positive_name = metadata.get("target_labels", {}).get(str(positive), str(positive))
-            st.caption(f"Precision, recall and F1 use {positive_name} ({positive}) as the positive class. AUC uses continuous scores.")
+        st.markdown('<div class="section-eyebrow">01 / SELECT A MODEL</div>', unsafe_allow_html=True)
+        selected_model = st.selectbox(
+            "Select a model to inspect", list(models), index=None,
+            placeholder="Choose a model...", key="model_selection",
+        )
+        if selected_model is None:
+            st.info("Select a model to display its evaluation metrics, confusion matrix and classification report.")
         else:
-            st.caption("Precision, recall and F1 are support-weighted across classes. AUC is weighted one-vs-rest ROC-AUC.")
-        metric_help = {
-            "Accuracy": "Fraction of all records classified correctly.",
-            "AUC": "ROC area under the curve from continuous scores; weighted one-vs-rest for multiclass data.",
-            "Precision": "Correct positive predictions divided by positive predictions; support-weighted for multiclass data.",
-            "Recall": "Detected positives divided by actual positives; support-weighted for multiclass data.",
-            "F1": "Harmonic mean of precision and recall; support-weighted for multiclass data.",
-            "MCC": "Matthews correlation coefficient: agreement using all four confusion-matrix cells.",
-        }
-        for first in (0, 3):
-            columns = st.columns(3)
-            for column, metric in zip(columns, METRICS[first : first + 3]):
-                value = result["metrics"][metric]
-                with column, st.container(key=f"metric_{metric.lower()}"):
-                    st.metric(
-                        metric,
-                        "N/A" if value is None or pd.isna(value) else f"{value:.4f}",
-                        help=metric_help[metric],
-                    )
+            result = details[selected_model]
+            st.subheader(f"{selected_model}: evaluation metrics")
+            if result.get("auc_reason"):
+                st.warning("AUC is unavailable: " + result["auc_reason"])
+            if len(result["classes"]) == 2:
+                positive = metadata["positive_class"]
+                positive_name = metadata.get("target_labels", {}).get(str(positive), str(positive))
+                st.caption(f"Precision, recall and F1 use {positive_name} ({positive}) as the positive class. AUC uses continuous scores.")
+            else:
+                st.caption("Precision, recall and F1 are support-weighted across classes. AUC is weighted one-vs-rest ROC-AUC.")
+            metric_help = {
+                "Accuracy": "Fraction of all records classified correctly.",
+                "AUC": "ROC area under the curve from continuous scores; weighted one-vs-rest for multiclass data.",
+                "Precision": "Correct positive predictions divided by positive predictions; support-weighted for multiclass data.",
+                "Recall": "Detected positives divided by actual positives; support-weighted for multiclass data.",
+                "F1": "Harmonic mean of precision and recall; support-weighted for multiclass data.",
+                "MCC": "Matthews correlation coefficient: agreement using all four confusion-matrix cells.",
+            }
+            for first in (0, 3):
+                columns = st.columns(3)
+                for column, metric in zip(columns, METRICS[first : first + 3]):
+                    value = result["metrics"][metric]
+                    with column, st.container(key=f"metric_{metric.lower()}"):
+                        st.metric(
+                            metric,
+                            "N/A" if value is None or pd.isna(value) else f"{value:.4f}",
+                            help=metric_help[metric],
+                        )
+
+    if selected_model is None:
+        show_footer()
+        return
 
     with st.container(key="matrix_panel"):
-        st.markdown('<div class="section-eyebrow">03 / UNDERSTAND THE ERRORS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-eyebrow">02 / UNDERSTAND THE ERRORS</div>', unsafe_allow_html=True)
         st.subheader("Confusion matrix")
         st.caption(f"Selected model: {selected_model} · Evaluation data: {data_name}")
         class_count = len(result["classes"])
@@ -383,7 +377,7 @@ def main():
         correct = int(result["confusion_matrix"].trace())
         st.caption(f"All {len(frame):,} test records are shown: {correct:,} correct predictions and {len(frame) - correct:,} errors. Cell percentages are calculated within each actual class.")
     with st.container(key="report_panel"):
-        st.markdown('<div class="section-eyebrow">04 / CLASS BY CLASS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-eyebrow">03 / CLASS BY CLASS</div>', unsafe_allow_html=True)
         st.subheader("Classification report")
         st.caption("A detailed view of performance for every class in this dataset.")
         report = {

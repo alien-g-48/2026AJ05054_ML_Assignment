@@ -54,7 +54,7 @@ class AssignmentTests(unittest.TestCase):
         cls.metadata, cls.models = load_artifacts()
         cls.test_data = pd.read_csv(ROOT / "test_data.csv")
         cls.test_features, cls.test_target = validate_data(cls.test_data, cls.metadata)
-        cls.table, cls.details = evaluate_models(cls.models, cls.test_features, cls.test_target)
+        cls.table, cls.details = evaluate_models(cls.models, cls.test_features, cls.test_target, cls.metadata)
 
     def test_dataset_meets_requirements_and_source_is_recorded(self):
         dataset = self.metadata["dataset"]
@@ -258,6 +258,48 @@ class AssignmentTests(unittest.TestCase):
         self.assertNotIn("replay_comparison", [item.key for item in app.button])
         self.assertFalse(any(item.value == "Animated metric comparison" for item in app.subheader))
 
+    def assert_no_selected_model_results(self, app):
+        """A valid upload alone must not display a model's evaluation outputs."""
+        self.assertEqual(len(app.metric), 0)
+        self.assertEqual(len(app.dataframe), 0)
+        self.assertFalse(any(
+            item.value in {"Confusion matrix", "Classification report"}
+            or item.value.endswith(": evaluation metrics")
+            for item in app.subheader
+        ))
+        self.assertFalse(any('class="confusion-figure"' in item.value for item in app.markdown))
+        self.assert_no_comparison_table(app)
+
+    def assert_no_comparison_table(self, app):
+        self.assertNotIn("Comparison of all five models", [item.value for item in app.subheader])
+        for table in app.dataframe:
+            self.assertNotEqual(list(table.value.columns), ["Model", *METRICS])
+
+    def assert_selected_model_results(self, app, name, result, frame):
+        """Exactly one set of metric cards belongs to the chosen classifier."""
+        self.assertEqual([item.label for item in app.metric], METRICS)
+        self.assertEqual(len({item.label for item in app.metric}), 6)
+        self.assertEqual(
+            [item.value for item in app.metric],
+            [f"{result['metrics'][metric]:.4f}" for metric in METRICS],
+        )
+        self.assertEqual(
+            [item.value for item in app.subheader if item.value.endswith(": evaluation metrics")],
+            [f"{name}: evaluation metrics"],
+        )
+        self.assertEqual(sum('class="confusion-figure"' in item.value for item in app.markdown), 1)
+        self.assertEqual(len(app.dataframe), 2)
+        report = pd.DataFrame({
+            label: values for label, values in result["classification_report"].items()
+            if isinstance(values, dict)
+        }).T
+        report.index.name = "Class"
+        pd.testing.assert_frame_equal(app.dataframe[0].value, report)
+        preview = frame.head(20).copy()
+        preview[f"predicted_{TARGET}"] = result["predictions"][:len(preview)]
+        pd.testing.assert_frame_equal(app.dataframe[1].value.reset_index(drop=True), preview.reset_index(drop=True))
+        self.assert_no_comparison_table(app)
+
     def test_initial_app_waits_for_upload_and_keeps_dataset_details_and_download(self):
         with TemporaryDirectory(prefix="waiting-app-downloads-") as static_root, \
                 patch.object(Pipeline, "fit", side_effect=AssertionError("The app must never train models")), \
@@ -275,7 +317,7 @@ class AssignmentTests(unittest.TestCase):
             self.assertTrue(any("upload" in item.value.lower() for item in app.info))
             assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
 
-    def test_uploaded_sample_shows_all_models_and_selected_metrics_without_training(self):
+    def test_uploaded_sample_shows_metrics_once_only_after_selection_without_training(self):
         upload = SimpleNamespace(name="uploaded-test.csv", getvalue=lambda: (ROOT / "test_data.csv").read_bytes())
         with TemporaryDirectory(prefix="default-app-downloads-") as static_root, \
                 patch.object(Pipeline, "fit", side_effect=AssertionError("The app must never train models")), \
@@ -285,25 +327,28 @@ class AssignmentTests(unittest.TestCase):
             self.assertEqual(list(app.exception), [])
             self.assert_assignment_identity_and_no_chart(app)
             self.assertEqual(app.selectbox(key="model_selection").options, list(MODEL_FILES))
-            pd.testing.assert_frame_equal(app.dataframe[0].value, self.table)
+            self.assertIsNone(app.selectbox(key="model_selection").value)
+            self.assert_no_selected_model_results(app)
             flow = next(item.value for item in app.markdown if 'class="dataset-flow"' in item.value)
             self.assertIn("11,055 rows", flow)
             self.assertIn("8,841 rows", flow)
             self.assertIn("2,214 rows", flow)
-            self.assertTrue(any("2 target classes give a 2 × 2 matrix" in item.value for item in app.caption))
             self.assertFalse(any("deploy" in button.label.lower() for button in app.button))
             assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
             for name in MODEL_FILES:
                 app.selectbox(key="model_selection").select(name).run()
                 self.assertEqual(list(app.exception), [])
                 self.assert_assignment_identity_and_no_chart(app)
-                self.assertEqual([metric.label for metric in app.metric], METRICS)
-                self.assertEqual(
-                    [metric.value for metric in app.metric],
-                    [f"{self.details[name]['metrics'][metric]:.4f}" for metric in METRICS],
-                )
+                self.assert_selected_model_results(app, name, self.details[name], self.test_data)
+                self.assertTrue(any("2 target classes give a 2 × 2 matrix" in item.value for item in app.caption))
                 self.assertTrue(any("Confusion matrix" == title.value for title in app.subheader))
-                self.assertGreaterEqual(len(app.dataframe), 2)
+            app.selectbox(key="model_selection").select(None).run()
+            self.assertEqual(list(app.exception), [])
+            self.assertIsNone(app.selectbox(key="model_selection").value)
+            self.assert_no_selected_model_results(app)
+            app.selectbox(key="model_selection").select("Naive Bayes").run()
+            self.assertEqual(list(app.exception), [])
+            self.assert_selected_model_results(app, "Naive Bayes", self.details["Naive Bayes"], self.test_data)
 
     def test_upload_validation_and_removal_hide_previous_results_in_the_same_session(self):
         first = self.test_data.head(40).copy()
@@ -342,10 +387,21 @@ class AssignmentTests(unittest.TestCase):
 
             replace_upload(app, first, "first.csv")
             first_features, first_target = validate_data(first, self.metadata)
-            first_scores, _ = evaluate_models(self.models, first_features, first_target, self.metadata)
-            pd.testing.assert_frame_equal(app.dataframe[0].value, first_scores)
+            first_scores, first_details = evaluate_models(self.models, first_features, first_target, self.metadata)
+            self.assertIsNone(app.selectbox(key="model_selection").value)
+            self.assert_no_selected_model_results(app)
+            app.selectbox(key="model_selection").select("Logistic Regression").run()
+            self.assertEqual(list(app.exception), [])
+            self.assert_selected_model_results(app, "Logistic Regression", first_details["Logistic Regression"], first)
             self.assertTrue(any("first.csv" in item.value for item in app.success))
             self.assertTrue(any('class="confusion-figure"' in item.value for item in app.markdown))
+
+            replace_upload(app, second, "replacement.csv")
+            second_features, second_target = validate_data(second, self.metadata)
+            second_scores, second_details = evaluate_models(self.models, second_features, second_target, self.metadata)
+            self.assertFalse(first_scores.equals(second_scores))
+            self.assertEqual(app.selectbox(key="model_selection").value, "Logistic Regression")
+            self.assert_selected_model_results(app, "Logistic Regression", second_details["Logistic Regression"], second)
 
             replace_upload(app, first.drop(columns=TARGET), "invalid.csv")
             self.assertTrue(any("Missing columns" in item.value for item in app.error))
@@ -359,18 +415,15 @@ class AssignmentTests(unittest.TestCase):
             self.assertTrue(any("upload" in item.value.lower() for item in app.info))
 
             replace_upload(app, second, "second.csv")
-            second_features, second_target = validate_data(second, self.metadata)
-            second_scores, second_details = evaluate_models(self.models, second_features, second_target, self.metadata)
-            self.assertFalse(first_scores.equals(second_scores))
-            pd.testing.assert_frame_equal(app.dataframe[0].value, second_scores)
+            self.assertIsNone(app.selectbox(key="model_selection").value)
+            self.assert_no_selected_model_results(app)
             self.assertTrue(any("second.csv" in item.value for item in app.success))
             self.assertEqual(list(app.error), [])
+            app.selectbox(key="model_selection").select("Support Vector Machine").run()
+            self.assertEqual(list(app.exception), [])
             selected = app.selectbox(key="model_selection").value
             expected = second_details[selected]
-            self.assertEqual([item.value for item in app.metric], [f"{expected['metrics'][metric]:.4f}" for metric in METRICS])
-            preview = second.head(20).copy()
-            preview[f"predicted_{TARGET}"] = expected["predictions"][:len(preview)]
-            pd.testing.assert_frame_equal(app.dataframe[-1].value.reset_index(drop=True), preview.reset_index(drop=True))
+            self.assert_selected_model_results(app, selected, expected, second)
             fit.assert_not_called()
 
 

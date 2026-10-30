@@ -55,6 +55,37 @@ def assert_no_comparison_chart(test, app):
     test.assertFalse(any('class="metric-comparison-chart"' in item.value for item in app.markdown))
 
 
+def assert_waiting_for_model(test, app):
+    """An uploaded CSV alone must not reveal a default model's results."""
+    test.assertEqual(list(app.exception), [])
+    test.assertIsNone(app.selectbox(key="model_selection").value)
+    test.assertEqual(len(app.metric), 0)
+    test.assertEqual(len(app.dataframe), 0)
+    test.assertFalse(any('class="confusion-figure"' in item.value for item in app.markdown))
+    test.assertFalse(any(item.value == "Comparison of all five models" for item in app.subheader))
+
+
+def assert_selected_metrics(test, app, result):
+    """Display the selected model's six scores once, without a comparison table."""
+    test.assertEqual(list(app.exception), [])
+    test.assertEqual([metric.label for metric in app.metric], METRICS)
+    expected_values = [
+        "N/A" if result["metrics"][metric] is None or pd.isna(result["metrics"][metric])
+        else f"{result['metrics'][metric]:.4f}"
+        for metric in METRICS
+    ]
+    test.assertEqual([metric.value for metric in app.metric], expected_values)
+    test.assertEqual(len(app.dataframe), 2)
+    test.assertFalse(any("Model" in table.value.columns for table in app.dataframe))
+    report = pd.DataFrame({
+        label: values for label, values in result["classification_report"].items()
+        if isinstance(values, dict)
+    }).T
+    report.index.name = "Class"
+    pd.testing.assert_frame_equal(app.dataframe[0].value, report)
+    assert_no_comparison_chart(test, app)
+
+
 class MulticlassProbabilityFixture:
     """Known class probabilities with some incorrect maximum-score predictions."""
 
@@ -336,49 +367,46 @@ class GenericDatasetTests(unittest.TestCase):
             pd.testing.assert_frame_equal(downloaded_frame, profile["test_data"])
             upload_state.update(profile=profile["path"].resolve(), bytes=downloaded_bytes)
             app.run()
-            self.assertEqual(list(app.exception), [])
-            pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
+            assert_waiting_for_model(self, app)
             assert_no_comparison_chart(self, app)
-            self.assertTrue(any("3 target classes give a 3 × 3 matrix" in item.value for item in app.caption))
             self.assertEqual(app.selectbox(key="model_selection").options, list(MODEL_FILES))
             for name in MODEL_FILES:
                 app.selectbox(key="model_selection").select(name).run()
-                self.assertEqual(list(app.exception), [])
-                self.assertEqual([metric.label for metric in app.metric], METRICS)
-                self.assertEqual([metric.value for metric in app.metric], [f"{profile['details'][name]['metrics'][metric]:.4f}" for metric in METRICS])
-                report = app.dataframe[1].value
+                assert_selected_metrics(self, app, profile["details"][name])
+                self.assertTrue(any("3 target classes give a 3 × 3 matrix" in item.value for item in app.caption))
+                report = app.dataframe[0].value
                 self.assertTrue(all(str(value) in " ".join(map(str, report.index)) for value in [101, 202, 303]))
             # Switching datasets must switch downloads and wait for that
             # dataset's upload, rather than displaying the earlier results.
             default_metadata, default_models = load_artifacts()
             default_frame = pd.read_csv(ROOT / "test_data.csv")
             default_features, default_target = validate_data(default_frame, default_metadata)
-            default_comparison, _ = evaluate_models(default_models, default_features, default_target, default_metadata)
+            _, default_details = evaluate_models(default_models, default_features, default_target, default_metadata)
             app.selectbox(key="dataset_profile").select((ROOT / "model").resolve()).run()
             assert_waiting_for_upload(app)
             assert_sample_download(self, app, static_root, (ROOT / "test_data.csv").read_bytes())
             self.assertNotEqual(sample_download_href(app), custom_download_href)
             upload_state.update(profile=(ROOT / "model").resolve(), bytes=(ROOT / "test_data.csv").read_bytes())
             app.run()
-            self.assertEqual(list(app.exception), [])
-            pd.testing.assert_frame_equal(app.dataframe[0].value, default_comparison)
-            assert_no_comparison_chart(self, app)
+            assert_waiting_for_model(self, app)
+            app.selectbox(key="model_selection").select("Naive Bayes").run()
+            assert_selected_metrics(self, app, default_details["Naive Bayes"])
             app.selectbox(key="dataset_profile").select(profile["path"].resolve()).run()
             assert_waiting_for_upload(app)
             assert_sample_download(self, app, static_root, (profile["path"] / "test_data.csv").read_bytes())
             self.assertEqual(sample_download_href(app), custom_download_href)
             upload_state.update(profile=profile["path"].resolve(), bytes=downloaded_bytes)
             app.run()
-            self.assertEqual(list(app.exception), [])
-            pd.testing.assert_frame_equal(app.dataframe[0].value, profile["comparison"])
-            assert_no_comparison_chart(self, app)
+            assert_waiting_for_model(self, app)
+            app.selectbox(key="model_selection").select("Support Vector Machine").run()
+            assert_selected_metrics(self, app, profile["details"]["Support Vector Machine"])
 
     def test_app_evaluates_uploaded_generic_csv_and_handles_invalid_uploads(self):
         profile = self.profiles["binary"]
         metadata = profile["metadata"]
         one_class = profile["test_data"].loc[profile["test_data"]["event_status"] == "attack"].head(8)
         features, target = validate_data(one_class, metadata)
-        expected, _ = evaluate_models(profile["models"], features, target, metadata)
+        _, expected_details = evaluate_models(profile["models"], features, target, metadata)
         uploads = [
             ("one-class.csv", one_class, None),
             ("missing-column.csv", one_class.drop(columns="measurement_0"), "Missing columns"),
@@ -400,7 +428,9 @@ class GenericDatasetTests(unittest.TestCase):
                         self.assertEqual(len(app.metric), 0)
                     else:
                         self.assertEqual(list(app.error), [])
-                        pd.testing.assert_frame_equal(app.dataframe[0].value, expected)
+                        assert_waiting_for_model(self, app)
+                        app.selectbox(key="model_selection").select("Naive Bayes").run()
+                        assert_selected_metrics(self, app, expected_details["Naive Bayes"])
                         self.assertEqual(next(metric.value for metric in app.metric if metric.label == "AUC"), "N/A")
                         self.assertTrue(any("AUC" in item.value for item in app.warning))
                         assert_no_comparison_chart(self, app)
@@ -433,6 +463,7 @@ class GenericDatasetTests(unittest.TestCase):
                 patch.object(Figure, "savefig", autospec=True, side_effect=save_figure), \
                 patch("downloads.sample_download_url", side_effect=lambda data: sample_download_url(data, static_root=static_root)):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+            assert_waiting_for_model(self, app)
             previous_table = None
             for position, frame in enumerate((first_frame, second_frame)):
                 if position:
@@ -451,7 +482,11 @@ class GenericDatasetTests(unittest.TestCase):
                 self.assertTrue(any(f"{len(frame)} test rows" in message.value for message in app.success))
                 features, target = validate_data(frame, profile["metadata"])
                 expected_table, details = evaluate_models(profile["models"], features, target, profile["metadata"])
-                pd.testing.assert_frame_equal(app.dataframe[0].value, expected_table)
+                if position == 0:
+                    assert_waiting_for_model(self, app)
+                else:
+                    # The already selected classifier evaluates the new rows.
+                    assert_selected_metrics(self, app, details[app.selectbox(key="model_selection").value])
                 if previous_table is not None:
                     self.assertFalse(expected_table.equals(previous_table))
                 previous_table = expected_table
@@ -467,12 +502,10 @@ class GenericDatasetTests(unittest.TestCase):
                 self.assertIsNotNone(current_count)
                 self.assertEqual(int(current_count.group(1).replace(",", "")), len(frame))
                 assert_no_comparison_chart(self, app)
-                pd.testing.assert_frame_equal(app.dataframe[0].value, expected_table)
                 for name in MODEL_FILES:
                     app.selectbox(key="model_selection").select(name).run()
-                    self.assertEqual(list(app.exception), [])
                     result = details[name]
-                    self.assertEqual([metric.value for metric in app.metric], [f"{result['metrics'][metric]:.4f}" for metric in METRICS])
+                    assert_selected_metrics(self, app, result)
                     figure = figures[-1]
                     matrix_axis = figure.axes[0]
                     np.testing.assert_array_equal(matrix_axis.images[0].get_array(), result["confusion_matrix"])
@@ -498,7 +531,7 @@ class GenericDatasetTests(unittest.TestCase):
                     self.assertTrue(any(f"Selected model: {name}" in caption.value for caption in app.caption))
                     preview = frame.head(20).reset_index(drop=True).copy()
                     preview["predicted_event_status"] = result["predictions"][:len(preview)]
-                    pd.testing.assert_frame_equal(app.dataframe[2].value.reset_index(drop=True), preview)
+                    pd.testing.assert_frame_equal(app.dataframe[1].value.reset_index(drop=True), preview)
 
     def test_upload_preserves_leading_zeros_in_categorical_features_and_string_labels(self):
         source = self.profiles["multiclass"]["source"].copy()
@@ -521,7 +554,7 @@ class GenericDatasetTests(unittest.TestCase):
         self.assertEqual(set(numeric_looking["event_status"]), {"001", "002"})
         self.assertEqual(set(numeric_looking["protocol"]), {"001", "002"})
         features, target = validate_data(numeric_looking, metadata)
-        expected, _ = evaluate_models(models, features, target, metadata)
+        _, expected_details = evaluate_models(models, features, target, metadata)
         payload = numeric_looking.to_csv(index=False).encode()
         upload = SimpleNamespace(name="leading-zero-test.csv", getvalue=lambda: payload)
         with TemporaryDirectory(prefix="leading-zero-app-downloads-") as static_root, \
@@ -532,7 +565,9 @@ class GenericDatasetTests(unittest.TestCase):
             app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
             self.assertEqual(list(app.exception), [])
             self.assertEqual(list(app.error), [])
-            pd.testing.assert_frame_equal(app.dataframe[0].value, expected)
+            assert_waiting_for_model(self, app)
+            app.selectbox(key="model_selection").select("Logistic Regression").run()
+            assert_selected_metrics(self, app, expected_details["Logistic Regression"])
             preview = app.dataframe[-1].value
             self.assertEqual(preview["protocol"].tolist(), numeric_looking.head(20)["protocol"].tolist())
             self.assertEqual(preview["event_status"].tolist(), numeric_looking.head(20)["event_status"].tolist())
