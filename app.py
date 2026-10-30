@@ -234,7 +234,8 @@ def show_selected_model(model_name):
 def show_confusion_matrix(matrix, labels, model_name):
     count = len(labels)
     size = min(16, max(7, count * .65))
-    figure, axis = plt.subplots(figsize=(size + 4, size), dpi=140)
+    figure_size = (8.6, 6.4) if count <= 3 else (size + 4, size)
+    figure, axis = plt.subplots(figsize=figure_size, dpi=140)
     figure.patch.set_facecolor("white")
     palette = LinearSegmentedColormap.from_list("classification_matrix", ["#eaf5f0", "#177c68"])
     heatmap = axis.imshow(matrix, cmap=palette, vmin=0, vmax=max(int(matrix.max()), 1))
@@ -278,15 +279,41 @@ def show_confusion_matrix(matrix, labels, model_name):
     plot_bytes = BytesIO()
     figure.savefig(plot_bytes, format="png", dpi=140)
     plot_base64 = b64encode(plot_bytes.getvalue()).decode("ascii")
+    descriptions = [
+        f"Actual {label}: " + "; ".join(
+            f"predicted {predicted_label} {int(matrix[row, column]):,}"
+            for column, predicted_label in enumerate(labels)
+        )
+        for row, label in enumerate(labels)
+    ]
+    alternative = f"{model_name} confusion matrix. " + ". ".join(descriptions) + "."
     st.markdown(
+        f'<div class="matrix-viewport" role="region" aria-label="{escape(model_name, quote=True)} confusion matrix chart" tabindex="0">'
         '<figure class="confusion-figure">'
         f'<img src="data:image/png;base64,{plot_base64}" '
-        f'alt="{escape(model_name)} confusion matrix" '
+        f'alt="{escape(alternative, quote=True)}" '
         f'width="{int(figure.get_figwidth() * 140)}" height="{int(figure.get_figheight() * 140)}">'
-        '</figure>',
+        '</figure></div>',
         unsafe_allow_html=True,
     )
     plt.close(figure)
+
+
+def show_matrix_values(matrix, labels):
+    """Expose the same plotted counts as a keyboard-accessible HTML table."""
+    headers = ''.join(f'<th scope="col">{escape(str(label))}</th>' for label in labels)
+    rows = ''.join(
+        '<tr>' + f'<th scope="row">{escape(str(label))}</th>'
+        + ''.join(f'<td>{int(value):,}</td>' for value in matrix[index]) + '</tr>'
+        for index, label in enumerate(labels)
+    )
+    st.markdown(
+        '<div class="matrix-table-wrapper" role="region" aria-label="Confusion matrix counts" tabindex="0">'
+        '<table class="matrix-table"><caption>Rows are actual classes. Columns are predicted classes.</caption>'
+        '<thead><tr><th scope="col">Actual / Predicted</th>' + headers + '</tr></thead>'
+        '<tbody>' + rows + '</tbody></table></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def main():
@@ -295,13 +322,23 @@ def main():
         st.error("No saved dataset models were found.")
         st.info("Train a dataset locally with python train.py, then refresh this page.")
         st.stop()
-    if len(profiles) > 1:
-        model_dir = st.sidebar.selectbox(
-            "Trained dataset", list(profiles), format_func=lambda path: profiles[path],
-            key="dataset_profile",
+    with st.sidebar:
+        st.markdown(
+            '<div class="sidebar-brand"><div class="brand-symbol" aria-hidden="true">'
+            '<svg viewBox="0 0 24 26" fill="none"><path d="M12 2 21 6v7c0 5-6 9-9 11-3-2-9-6-9-11V6l9-4Z" '
+            'stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" '
+            'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
+            f'<div><div class="brand-name">{ASSIGNMENT_TITLE}</div>'
+            f'<div class="brand-subtitle">Student ID {STUDENT_ID}</div></div></div>',
+            unsafe_allow_html=True,
         )
-    else:
-        model_dir = next(iter(profiles))
+        if len(profiles) > 1:
+            model_dir = st.selectbox(
+                "Trained dataset", list(profiles), format_func=lambda path: profiles[path],
+                key="dataset_profile",
+            )
+        else:
+            model_dir = next(iter(profiles))
     version = artifact_version(model_dir)
     try:
         metadata, models = cached_artifacts(version, str(model_dir))
@@ -326,7 +363,13 @@ def main():
         classification_type = "Binary classification" if len(metadata["classes"]) == 2 else "Multiclass classification"
         st.markdown(
             '<div class="hero-facts"><span>5 classification models</span>'
-            f'<span>6 evaluation metrics</span><span>{classification_type}</span></div>',
+            f'<span>6 evaluation metrics</span><span>{dataset["feature_count"]} input features</span>'
+            f'<span>{classification_type}</span></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p class="mobile-controls-hint"><span aria-hidden="true">↖</span> '
+            'Use the top-left arrow to open test data and model controls.</p>',
             unsafe_allow_html=True,
         )
     sample_path = model_dir / "test_data.csv"
@@ -339,20 +382,9 @@ def main():
         st.stop()
 
     with st.sidebar:
-        st.markdown(
-            '<div class="sidebar-brand"><div class="brand-symbol" aria-hidden="true">'
-            '<svg viewBox="0 0 24 26" fill="none"><path d="M12 2 21 6v7c0 5-6 9-9 11-3-2-9-6-9-11V6l9-4Z" '
-            'stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" '
-            'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
-            f'<div><div class="brand-name">{ASSIGNMENT_TITLE}</div>'
-            f'<div class="brand-subtitle">{STUDENT_ID} · Classifier Comparison</div></div></div>',
-            unsafe_allow_html=True,
-        )
-        st.caption("Upload your test data, then choose a classifier.")
         with st.container(key="sidebar_upload_panel"):
             st.markdown('<div class="sidebar-step">01 / TEST DATA</div>', unsafe_allow_html=True)
             st.header("Test data", anchor=False)
-            st.write("Download the sample or upload your own matching test CSV.")
             # Only the saved sample is made downloadable; uploads stay private.
             st.markdown(
                 f'<a class="sample-download" href="data:text/csv;base64,{b64encode(sample_bytes).decode("ascii")}" '
@@ -373,36 +405,30 @@ def main():
             st.caption("CSV · Up to 5 MB · 20,000 rows")
         # Reserve the position here; populate it once CSV validation is known.
         model_picker_panel = st.container(key="sidebar_model_panel")
-        st.markdown(
-            '<div class="sidebar-note">Switch classifiers to explore the same test data from five perspectives.</div>',
-            unsafe_allow_html=True,
-        )
         with st.expander("Required CSV format"):
             st.caption(f"Current dataset: {dataset['name']}")
             st.caption(f"Target column: {metadata['target_column']}")
             st.write("These feature columns and the target are required. Column order can differ.")
-            st.code(",".join(metadata["feature_names"] + [metadata["target_column"]]), language=None)
+            st.code("\n".join(metadata["feature_names"] + [metadata["target_column"]]), language=None)
             st.write("Classes: " + ", ".join(map(str, metadata["classes"])))
             st.caption("If an embedded preview blocks saving, open the app in your regular browser. The sample is also in the project folder.")
             st.caption("For a different dataset, first train its models locally with train.py.")
 
-    split = metadata.get("split", {})
-    if "train_rows" in split and "test_rows" in split:
-        st.markdown(
-            '<div class="dataset-flow" aria-label="Training and test split">'
-            f'<div><span>Full source dataset</span><strong>{dataset["rows"]:,} rows</strong></div>'
-            '<span class="flow-arrow" aria-hidden="true">→</span>'
-            f'<div><span>Used for training</span><strong>{split["train_rows"]:,} rows</strong></div>'
-            '<span class="flow-plus" aria-hidden="true">+</span>'
-            f'<div><span>Reserved for testing</span><strong>{split["test_rows"]:,} rows</strong></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.caption("The models learned from the training rows. The downloadable sample contains the reserved test rows. Upload a labeled test CSV to evaluate the saved models.")
-
-    dataset_text = f"[{dataset['name']}]({dataset['url']})" if dataset.get("url") else dataset["name"]
-    st.caption(f"Training dataset: {dataset_text} · {dataset['feature_count']} input features · Target: {metadata['target_column']} · {len(metadata['classes'])} classes")
     with st.expander("How the dataset is used"):
+        split = metadata.get("split", {})
+        if "train_rows" in split and "test_rows" in split:
+            st.markdown(
+                '<div class="dataset-flow" aria-label="Training and test split">'
+                f'<div><span>Full source dataset</span><strong>{dataset["rows"]:,} rows</strong></div>'
+                '<span class="flow-arrow" aria-hidden="true">→</span>'
+                f'<div><span>Used for training</span><strong>{split["train_rows"]:,} rows</strong></div>'
+                '<span class="flow-plus" aria-hidden="true">+</span>'
+                f'<div><span>Reserved for testing</span><strong>{split["test_rows"]:,} rows</strong></div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        dataset_text = f"[{dataset['name']}]({dataset['url']})" if dataset.get("url") else dataset["name"]
+        st.caption(f"Training dataset: {dataset_text} · {dataset['feature_count']} input features · Target: {metadata['target_column']} · {len(metadata['classes'])} classes")
         st.write("The training command loads the full source dataset, creates a separate training and test partition, and fits all five classifiers using only the training rows. The fitted preprocessing and classifiers are saved in .pkl files.")
         st.write("The app loads those saved models and waits for a labeled test CSV. After uploading a valid file, choose a model to display its metrics, confusion matrix, report and predictions using only that file. Switch models to inspect each classifier on the same test data. The models are not retrained.")
         st.write("Removing the uploaded file hides the results until another valid test CSV is uploaded. Evaluating the entire original dataset would include training rows and would not provide an independent test of performance.")
@@ -412,8 +438,8 @@ def main():
         with st.container(key="upload_prompt"):
             st.markdown('<div class="section-eyebrow">READY TO EVALUATE</div>', unsafe_allow_html=True)
             st.subheader("Upload your test data to begin", anchor=False)
-            st.write("Download test_data.csv from the Test data panel, then upload it using Upload test CSV. You can also upload your own labeled test CSV with the required columns.")
-            st.info("Upload a valid test CSV, then select one of the five models to view its six evaluation metrics, confusion matrix and classification report.")
+            st.write("Use **Test data** in the sidebar to upload the sample CSV or another matching labeled file.")
+            st.info("After upload, choose a classifier in the sidebar to view its results.")
         return
 
     csv_bytes = uploaded_file.getvalue()
@@ -430,7 +456,10 @@ def main():
         return
 
     selected_model = sidebar_model_picker(model_picker_panel, models, ready=True)
-    st.success(f"Test data loaded from {data_name}: {len(frame):,} test rows. Use the left sidebar to choose a model.")
+    if selected_model is None:
+        st.success(f"Test data loaded from {data_name}: {len(frame):,} test rows. Choose a classifier in the sidebar.")
+    else:
+        st.success(f"{len(frame):,} test rows evaluated with {selected_model}.")
 
     # Uploaded filenames are escaped before entering the static HTML summary.
     st.markdown(
@@ -472,13 +501,12 @@ def main():
                 "Precision": "Correct positive predictions divided by positive predictions; support-weighted for multiclass data.",
                 "Recall": "Detected positives divided by actual positives; support-weighted for multiclass data.",
                 "F1": "Harmonic mean of precision and recall; support-weighted for multiclass data.",
-                "MCC": "Matthews correlation coefficient: agreement using all four confusion-matrix cells.",
+                "MCC": "Matthews correlation coefficient: overall agreement from -1 to 1. Higher values indicate better classification.",
             }
-            for first in (0, 3):
-                columns = st.columns(3)
-                for column, metric in zip(columns, METRICS[first : first + 3]):
+            with st.container(key="metrics_grid"):
+                for metric in METRICS:
                     value = result["metrics"][metric]
-                    with column, st.container(key=f"metric_{metric.lower()}"):
+                    with st.container(key=f"metric_{metric.lower()}"):
                         st.metric(
                             metric,
                             "N/A" if value is None or pd.isna(value) else f"{value:.4f}",
@@ -493,11 +521,13 @@ def main():
         st.subheader("Confusion matrix", anchor=False)
         st.caption(f"Selected model: {selected_model} · Evaluation data: {data_name}")
         class_count = len(result["classes"])
-        st.caption(f"{class_count} target classes give a {class_count} × {class_count} matrix. Input features do not determine the matrix size.")
-        st.caption("Rows are actual classes and columns are predicted classes. The diagonal contains correct predictions.")
+        st.caption(f"{class_count} × {class_count} matrix · Rows: actual class · Columns: predicted class")
         show_confusion_matrix(result["confusion_matrix"], result["class_names"], selected_model)
+        st.markdown('<p class="matrix-scroll-hint">Scroll across the chart to view every label, or open the values below.</p>', unsafe_allow_html=True)
         correct = int(result["confusion_matrix"].trace())
-        st.caption(f"All {len(frame):,} test records are shown: {correct:,} correct predictions and {len(frame) - correct:,} errors. Cell percentages are calculated within each actual class.")
+        st.caption(f"All {len(frame):,} test records are shown: {correct:,} correct predictions and {len(frame) - correct:,} errors. Percentages are calculated within each actual class.")
+        with st.expander("Confusion matrix values"):
+            show_matrix_values(result["confusion_matrix"], result["class_names"])
     with st.container(key="report_panel"):
         st.markdown('<div class="section-eyebrow">03 / CLASS BY CLASS</div>', unsafe_allow_html=True)
         st.subheader("Classification report", anchor=False)
