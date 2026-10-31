@@ -31,27 +31,37 @@
 /* Application shell and type. Never hide overflow on the application itself. */
 [data-testid="stAppDeployButton"] { display: none !important; }
 [data-testid="stAppViewContainer"] { background: var(--color-background); }
-[data-testid="stHeader"] { background: #f3f7faf5; }
+[data-testid="stHeader"] { background: var(--color-background); }
 [data-testid="stMainBlockContainer"] {
   width: 100%;
   max-width: 1280px;
   min-width: 0;
   padding: 3.75rem clamp(1rem, 2.5vw, 2rem) var(--space-6);
 }
-[data-testid="stMain"] { color: var(--color-ink); }
+[data-testid="stMain"] { color: var(--color-ink); scroll-padding-top: 4.5rem; }
 [data-testid="stMain"] :is(h1, h2, h3) {
   color: var(--color-ink);
   letter-spacing: -.025em;
   overflow-wrap: break-word;
 }
-[data-testid="stMain"] h3 { font-size: 1.2rem; font-weight: 700; }
-[data-testid="stMain"] [data-testid="stCaptionContainer"] { color: var(--color-muted); }
+[data-testid="stMain"] h3 { padding: .25rem 0; font-size: 1.2rem; font-weight: 700; line-height: 1.35; }
+[data-testid="stMain"] [data-testid="stCaptionContainer"],
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p { color: var(--color-muted); }
+:is([data-testid="stMain"], [data-testid="stSidebar"])
+  [data-testid="stCaptionContainer"] { opacity: 1; }
 [data-testid="stMain"] [data-testid="stMarkdownContainer"] p { line-height: 1.6; }
+/* The native stack supplies spacing; remove Markdown's negative bottom offset. */
+:is([data-testid="stMainBlockContainer"], [data-testid="stSidebar"])
+  :is([data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"]) { margin-bottom: 0; }
+:is([data-testid="stMainBlockContainer"], [data-testid="stSidebar"])
+  :is([data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"]) > :last-child { margin-bottom: 0; }
 .mobile-controls-hint { display: none; }
 
 /* Compact assignment identity. Decorative motion does not compete with controls. */
 .st-key-hero {
   min-width: 0;
+  flex: 0 0 auto;
+  gap: .75rem;
   padding: var(--space-5) clamp(1.25rem, 3vw, 2rem);
   border: 1px solid #274b60;
   border-radius: var(--radius-lg);
@@ -93,13 +103,21 @@
 /* Reusable content surfaces and contextual dataset information. */
 .st-key-upload_prompt, .st-key-model_detail, .st-key-matrix_panel, .st-key-report_panel {
   min-width: 0;
+  flex: 0 0 auto;
   padding: clamp(1rem, 2vw, 1.5rem);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
+/* Keep content at its intrinsic height inside Streamlit's native flex layout. */
+:is(.st-key-hero, .st-key-upload_prompt, .st-key-model_detail, .st-key-matrix_panel,
+    .st-key-report_panel, .st-key-sidebar_upload_panel, .st-key-sidebar_model_panel)
+  > :is([data-testid="stElementContainer"], [data-testid="stLayoutWrapper"]) {
+  flex-shrink: 0;
+}
 .st-key-model_detail, .st-key-matrix_panel { container-type: inline-size; }
+.st-key-model_detail, .st-key-matrix_panel, .st-key-report_panel { gap: .875rem; }
 .section-eyebrow { margin-bottom: .2rem; color: var(--color-primary-dark); font-size: .75rem; font-weight: 700; letter-spacing: .06em; }
 .dataset-summary {
   display: grid;
@@ -206,13 +224,15 @@
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p { margin-bottom: 0; color: var(--color-sidebar-text); font-size: .875rem; line-height: 1.5; }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color: var(--color-sidebar-muted); font-size: .8rem; line-height: 1.45; }
 [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button { color: var(--color-sidebar-text); }
+[data-testid="stSidebar"] button [data-testid="stIconMaterial"] { color: inherit; }
+:is([data-testid="stSidebarCollapseButton"], [data-testid="stExpandSidebarButton"]) button { min-width: 44px; min-height: 44px; }
 .sidebar-brand { display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem; }
 .brand-symbol { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 42px; border: 1px solid #719c9d; border-radius: 10px; background: #254857; color: #b9efdb; }
 .brand-symbol svg { width: 23px; height: 25px; }
 .brand-name { color: #f0faf7; font-size: 1rem; font-weight: 700; line-height: 1.3; }
 .brand-subtitle { margin-top: .2rem; color: var(--color-sidebar-muted); font-size: .75rem; line-height: 1.4; }
-.sidebar-step { color: #b7edd9; font-size: .75rem; font-weight: 650; letter-spacing: .04em; }
-.st-key-sidebar_upload_panel, .st-key-sidebar_model_panel { min-width: 0; gap: .6rem; padding: .875rem; border: 1px solid #3b586a; border-radius: var(--radius-md); background: var(--color-sidebar-panel); transition: border-color var(--motion-duration); }
+.sidebar-step { color: #b7edd9; font-size: .75rem; font-weight: 650; letter-spacing: .04em; line-height: 1.5; }
+.st-key-sidebar_upload_panel, .st-key-sidebar_model_panel { min-width: 0; flex: 0 0 auto; gap: .75rem; padding: .875rem; border: 1px solid #3b586a; border-radius: var(--radius-md); background: var(--color-sidebar-panel); transition: border-color var(--motion-duration); }
 .st-key-sidebar_upload_panel:focus-within, .st-key-sidebar_model_panel:focus-within { border-color: #92d5be; }
 .st-key-sidebar_model_panel [data-baseweb="select"] > div { min-height: 48px; border: 1px solid #c9ded5; border-radius: var(--radius-sm); background: #f5faf8; color: #163d34; transition: border-color var(--motion-duration), box-shadow var(--motion-duration); }
 .st-key-sidebar_model_panel [data-baseweb="select"] :is(input, [role="combobox"]) { color: #163d34; -webkit-text-fill-color: #163d34; caret-color: var(--color-primary); }
@@ -241,7 +261,8 @@
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] :is(span, small) { color: var(--color-sidebar-text); }
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button { min-height: 40px; border: 1px solid #7898a7; border-radius: 6px; background: #284b60; color: #f4fafb; }
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button:hover { border-color: #b5e7d5; background: #345e70; }
-[data-testid="stSidebar"] [data-testid="stFileUploaderFileName"] { color: var(--color-sidebar-text); white-space: normal; overflow-wrap: anywhere; }
+[data-testid="stSidebar"] [data-testid="stFileUploaderFileName"] { color: var(--color-sidebar-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-testid="stSidebar"] [data-testid="stTooltipIcon"] [data-testid="stTooltipHoverTarget"] > svg { color: var(--color-sidebar-muted); stroke: var(--color-sidebar-muted); }
 [data-testid="stSidebar"] [data-testid="stFileUploaderFile"] small,
 [data-testid="stSidebar"] [data-testid="stFileUploaderDeleteBtn"] button { color: var(--color-sidebar-muted); }
 [data-testid="stSidebar"] button:focus-visible { outline: 2px solid #c5f5e0; outline-offset: 3px; }
@@ -255,6 +276,19 @@
   .st-key-hero { padding: 1.25rem; }
   .summary-item { padding: .875rem; }
 }
+/* Keep guidance in sync with the native sidebar, including collapsed tablets. */
+[data-testid="stApp"]:has([data-testid="stSidebar"][aria-expanded="false"])
+  .st-key-hero [data-testid="stMarkdownContainer"] p.mobile-controls-hint {
+  display: block;
+  margin: .3rem 0 0;
+  padding: .75rem .875rem;
+  border: 1px solid #d0dedb;
+  border-radius: var(--radius-sm);
+  background: #eef6f3;
+  color: #294d42;
+  font-size: .875rem;
+  line-height: 1.5;
+}
 @media (max-width: 600px) {
   [data-testid="stMainBlockContainer"] { padding: 3.75rem .875rem 1.5rem; }
   .st-key-hero { padding: 1.25rem 1rem; }
@@ -262,7 +296,6 @@
   .hero-student { white-space: normal; }
   .hero-facts { gap: .4rem; }
   .hero-facts span { font-size: .75rem; }
-  .mobile-controls-hint { display: block; margin: .3rem 0; padding: .75rem .875rem; border: 1px solid #d0dedb; border-radius: var(--radius-sm); background: #eef6f3; color: #294d42; font-size: .875rem; line-height: 1.5; }
   .dataset-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-item:first-child { grid-column: 1 / -1; border-bottom: 1px solid var(--color-line); }
   .summary-item:nth-child(2) { border-left: 0; }

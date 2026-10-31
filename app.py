@@ -389,7 +389,7 @@ def main():
             st.markdown(
                 f'<a class="sample-download" href="data:text/csv;base64,{b64encode(sample_bytes).decode("ascii")}" '
                 'download="test_data.csv" target="_self">'
-                '<span aria-hidden="true">↓</span> Download test_data.csv</a>',
+                '<span aria-hidden="true">↓</span><span>Download test CSV</span></a>',
                 unsafe_allow_html=True,
             )
             st.markdown(
