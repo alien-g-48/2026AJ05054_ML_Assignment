@@ -59,3 +59,11 @@ Phishing (1) is the positive class for Precision, Recall and F1. AUC uses contin
 | Naive Bayes | Detects every phishing record, giving 1.0000 recall, but incorrectly flags 825 legitimate records. Its low precision of 0.5432 leads to the lowest accuracy and MCC. Its high AUC does not translate into strong predictions at the default classification threshold. |
 | Support Vector Machine | Achieves the highest accuracy (95.08%), AUC (0.9887), Precision (0.9580), F1 (0.9436) and MCC (0.9003). It makes 109 errors: 40 false alarms and 69 missed phishing records. |
 | Overall, Winner for your dataset? | **Support Vector Machine** provides the best balanced performance on this held-out test set. Naive Bayes has higher recall, but SVM combines strong phishing detection with substantially fewer false alarms. |
+
+## 5. Overall observations
+
+- **SVM provides the best overall performance on this test set.** It achieves 95.08% accuracy, 0.9436 F1 and 0.9003 MCC, with 40 false alarms and 69 missed phishing records. It leads five of the six evaluation metrics; Naive Bayes has the highest recall.
+- **Decision Tree is the next strongest model by accuracy, F1 and MCC.** Logistic Regression and KNN also provide competitive baselines, with accuracies of 92.73% and 92.50%, respectively.
+- **Phishing detection involves a trade-off between missed attacks and false alarms.** Naive Bayes detects all 981 phishing records, but also flags 825 legitimate records as phishing. Its perfect recall therefore comes with low precision (0.5432).
+- **Model selection should consider several metrics together.** Naive Bayes achieves a high AUC of 0.9684 despite only 62.74% accuracy at its default classification threshold. Precision, recall, F1, MCC and the confusion matrix help explain behavior that accuracy or AUC alone can hide.
+- **The conclusions apply to the evaluated dataset and split.** All models use the same grouped holdout, identical feature vectors stay within one partition, and scaling is fitted only on training data. These choices support a consistent comparison; further validation on additional unseen data would help assess how well the results generalize.
