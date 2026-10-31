@@ -503,6 +503,14 @@ def main():
                 "F1": "Harmonic mean of precision and recall; support-weighted for multiclass data.",
                 "MCC": "Matthews correlation coefficient: overall agreement from -1 to 1. Higher values indicate better classification.",
             }
+            metric_context = {
+                "Accuracy": "Correct predictions",
+                "AUC": "Ranking ability",
+                "Precision": "Positive prediction quality",
+                "Recall": "Actual positives detected",
+                "F1": "Precision–recall balance",
+                "MCC": "Prediction correlation",
+            }
             with st.container(key="metrics_grid"):
                 for metric in METRICS:
                     value = result["metrics"][metric]
@@ -511,6 +519,15 @@ def main():
                             metric,
                             "N/A" if value is None or pd.isna(value) else f"{value:.4f}",
                             help=metric_help[metric],
+                        )
+                        score_range = "−1 to 1" if metric == "MCC" else "0–1"
+                        range_label = "Score range: minus one to one" if metric == "MCC" else "Score range: zero to one"
+                        st.markdown(
+                            '<div class="metric-context">'
+                            f'<span class="metric-meaning">{metric_context[metric]}</span>'
+                            f'<span class="metric-range" title="{range_label}" aria-label="{range_label}">{score_range}</span>'
+                            '</div>',
+                            unsafe_allow_html=True,
                         )
 
     if selected_model is None:

@@ -173,22 +173,78 @@
 .model-waiting .model-copy p { color: var(--color-muted); }
 
 /* Six native metric widgets, arranged according to available card width. */
-.st-key-metrics_grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .875rem; min-width: 0; }
-.st-key-metrics_grid > div { min-width: 0; }
+.st-key-metrics_grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  min-width: 0;
+}
+.st-key-metrics_grid > [data-testid="stLayoutWrapper"] {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  min-width: 0;
+}
+.st-key-metrics_grid [class*="st-key-metric_"] {
+  min-width: 0;
+  min-height: 156px;
+  height: auto;
+  flex: 1 1 auto;
+  gap: .875rem;
+  padding: 1.125rem;
+  border: 1px solid var(--color-line);
+  border-top: 3px solid var(--model-accent, var(--color-primary));
+  border-radius: var(--radius-md);
+  background: #f8fbfa;
+  background: linear-gradient(135deg, #fff 30%, color-mix(in srgb, var(--model-accent, var(--color-primary)) 5%, #fff));
+  box-shadow: 0 3px 12px #18324906;
+  transition: border-color var(--motion-duration) var(--motion-ease), box-shadow var(--motion-duration) var(--motion-ease);
+}
+.st-key-metrics_grid [class*="st-key-metric_"]:hover {
+  border-color: var(--model-accent, var(--color-primary));
+  box-shadow: 0 5px 18px #1832490d;
+}
+.st-key-metrics_grid [class*="st-key-metric_"] > [data-testid="stElementContainer"] {
+  min-width: 0;
+  flex-shrink: 0;
+}
+.st-key-metrics_grid [class*="st-key-metric_"] > [data-testid="stElementContainer"]:last-child { margin-top: auto; }
 .st-key-metrics_grid [data-testid="stMetric"] {
   min-width: 0;
-  min-height: 112px;
-  height: 100%;
-  padding: 1rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  transition: border-color var(--motion-duration), box-shadow var(--motion-duration);
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-.st-key-metrics_grid [data-testid="stMetric"]:hover { border-color: #a7cfc1; box-shadow: 0 3px 10px #1832490a; }
-.st-key-metrics_grid [data-testid="stMetricLabel"] { color: var(--color-muted); font-size: .875rem; }
-.st-key-metrics_grid [data-testid="stMetricValue"] { color: var(--color-ink); font-size: 1.75rem; font-weight: 700; line-height: 1.3; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.st-key-metrics_grid [data-testid="stMetricLabel"] { color: var(--color-body); font-size: .875rem; font-weight: 650; }
+.st-key-metrics_grid [data-testid="stMetricValue"] { color: var(--color-ink); font-size: 2rem; font-weight: 750; line-height: 1.35; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
 .st-key-metrics_grid [data-testid="stMetricValue"] > div { overflow: visible; text-overflow: clip; }
+.metric-context {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .5rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+.metric-meaning { min-width: 0; overflow-wrap: break-word; }
+.metric-range {
+  flex-shrink: 0;
+  padding: .1rem .4rem;
+  border: 1px solid #dce5ec;
+  border-radius: 5px;
+  background: #ffffff;
+  color: var(--color-body);
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .st-key-metric_auc [data-testid="stMetric"] { animation-delay: .025s; }
 .st-key-metric_precision [data-testid="stMetric"] { animation-delay: .05s; }
 .st-key-metric_recall [data-testid="stMetric"] { animation-delay: .075s; }
@@ -316,6 +372,7 @@
   .model-selection, .model-waiting, .sidebar-selected-model,
   .st-key-matrix_panel, .st-key-report_panel,
   .st-key-metrics_grid [data-testid="stMetric"],
+  .st-key-metrics_grid [class*="st-key-metric_"],
   [data-testid="stSidebar"] .sample-download,
   [data-testid="stSidebar"] .sample-preview,
   .st-key-sidebar_upload_panel, .st-key-sidebar_model_panel,
